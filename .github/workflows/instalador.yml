@@ -1,8 +1,11 @@
 name: Gerar instalador do Printer's 3D Utility
 
+# Roda sozinho quando o código do programa (pasta app/) muda,
+# ou manualmente em Actions > "Gerar instalador" > Run workflow.
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+    paths: ["app/**", ".github/workflows/instalador.yml"]
   workflow_dispatch:
 
 permissions:
@@ -16,6 +19,13 @@ jobs:
         working-directory: app
     steps:
       - uses: actions/checkout@v4
+
+      - name: Ler versão
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Get-Content VERSION -Raw).Trim()
+          "versao=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - uses: actions/setup-python@v5
         with:
@@ -33,9 +43,8 @@ jobs:
       - name: Gerar o instalador
         shell: pwsh
         run: |
-          $ver = "${{ github.ref_name }}".TrimStart("v")
-          if (-not $ver -or $ver -eq "main") { $ver = "2.0" }
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$ver" "instalador\Printers3DUtility.iss"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.ver.outputs.versao }}" "instalador\Printers3DUtility.iss"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - uses: actions/upload-artifact@v4
         with:
@@ -43,12 +52,15 @@ jobs:
           path: app/dist/Printers3DUtility-Setup.exe
 
       - name: Publicar na página de downloads (Releases)
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.ver.outputs.versao }}
+          target_commitish: ${{ github.sha }}
+          name: Printer's 3D Utility v${{ steps.ver.outputs.versao }}
+          make_latest: true
           files: app/dist/Printers3DUtility-Setup.exe
-          name: Printer's 3D Utility ${{ github.ref_name }}
           body: |
             Instalador do Printer's 3D Utility para Windows 10 e 11.
             Baixe o **Printers3DUtility-Setup.exe**, execute e siga o assistente.
             Se o Windows avisar "O Windows protegeu o computador", clique em **Mais informações** > **Executar assim mesmo**.
+            Info 3D Cartuchos Express • WhatsApp (21) 98660-0466
