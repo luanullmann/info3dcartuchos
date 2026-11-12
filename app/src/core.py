@@ -135,6 +135,10 @@ EQUIVALENTES = {
     "L3250": "ET-2812",
     "L3251": "ET-2812",
     "L3210": "ET-2812",
+    # single-function da mesma geração (mesma placa/firmware XF26). Confirmar
+    # lendo os contadores antes do reset permanente.
+    "L1250": "ET-2812",
+    "L1210": "ET-2812",
 }
 _cache_embutidos: Optional[dict] = None
 
