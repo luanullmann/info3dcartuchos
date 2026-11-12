@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794500872";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794501041";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -54,26 +54,45 @@ function bonito(t) {
 function cabecalhoLoja() {
   return `*${loja.nome}*` + (loja.cnpj ? `\nCNPJ ${loja.cnpj}` : "");
 }
-function rodapeLoja() {
+function rodapeLoja(tecnico) {
   const l = [];
+  if (tecnico) l.push(`👨‍🔧 Atendimento: ${tecnico}`);
   if (loja.endereco) l.push(`📍 ${loja.endereco}`);
   if (loja.whatsapp) l.push(`📞 WhatsApp ${loja.whatsapp}`);
   l.push("_Qualquer dúvida, é só responder esta mensagem._");
   return l.join("\n");
 }
 
+function saudacaoHora() {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "Bom dia";
+  if (h >= 12 && h < 18) return "Boa tarde";
+  return "Boa noite";
+}
+// "sua impressora", "seu notebook"... conforme o tipo do aparelho
+function aparelhoArtigo(tipo) {
+  const t = (tipo || "").toLowerCase();
+  if (!t || t.includes("impressora")) return "sua impressora";
+  if (t.includes("multifuncional")) return "sua multifuncional";
+  if (t.includes("notebook") || t.includes("computador")) return "seu " + t;
+  if (t.includes("celular") || t.includes("tablet") || t.includes("monitor")) return "seu " + t;
+  return "seu " + t;
+}
+
 function mensagem(os) {
   const nome = primeiroNome(os.cliente_nome);
-  const ola = `Olá${nome ? ", " + nome : ""}! Tudo bem?`;
-  const ap = bonito(os.modelo) || os.tipo || "aparelho";
-  const osn = `*Ordem de serviço nº ${os.numero}*\nAparelho: ${ap}${os.serie ? ` · série ${os.serie}` : ""}`;
+  const ola = `${saudacaoHora()}${nome ? ", " + nome : ""}! Tudo bem?`;
+  const ap = bonito(os.modelo) || os.tipo || "impressora";
+  const oAp = aparelhoArtigo(os.tipo);
+  const rotuloAp = os.tipo || "Impressora";
+  const osn = `*Ordem de serviço nº ${os.numero}*\n${rotuloAp}: ${ap}${os.serie ? ` · série ${os.serie}` : ""}`;
   const link = linkCliente(os);
   const sep = "━━━━━━━━━━━━━━";
   const partes = [cabecalhoLoja() + "\n" + sep, ola];
 
   switch (os.status) {
     case "aprovacao": {
-      partes.push(`O orçamento do seu aparelho está pronto.\n\n${osn}`);
+      partes.push(`O orçamento d${oAp.startsWith("sua") ? "a " + oAp.slice(4) : "o " + oAp.slice(4)} está pronto.\n\n${osn}`);
       if (os.laudo) partes.push(`*Diagnóstico*\n${os.laudo.trim()}`);
       const itens = (os.itens || []).filter((i) => (i.desc || "").trim())
         .map((i) => `• ${i.desc.trim()}: ${reais(numero(i.valor))}`).join("\n");
@@ -87,30 +106,30 @@ function mensagem(os) {
       break;
     }
     case "pronta":
-      partes.push(`Seu aparelho está *pronto para retirada*! ✅\n\n${osn}` +
+      partes.push(`${oAp[0].toUpperCase() + oAp.slice(1)} está *pronta para retirada*! ✅\n\n${osn}` +
         (total(os) ? `\nValor: *${reais(total(os))}*${os.pago ? " (pago, obrigado!)" : ""}` : ""));
       if (total(os) && !os.pago) partes.push("*Formas de pagamento*\n" +
         (loja.pix_chave ? "• Pix, pelo link abaixo\n" : "") + "• Cartão de débito ou crédito, na loja");
       partes.push(`Acompanhe e veja os detalhes:\n${link}`);
       break;
     case "conserto":
-      partes.push(`Seu aparelho já está em conserto. Avisaremos assim que estiver pronto.\n\n${osn}`);
+      partes.push(`${oAp[0].toUpperCase() + oAp.slice(1)} já está em conserto. Avisaremos assim que estiver pronta.\n\n${osn}`);
       partes.push(`Acompanhe pelo link:\n${link}`);
       break;
     default:
-      partes.push(`Recebemos o seu aparelho. Em breve enviaremos o orçamento.\n\n${osn}`);
+      partes.push(`Recebemos ${oAp}. Em breve enviaremos o orçamento.\n\n${osn}`);
       partes.push(`Acompanhe pelo link:\n${link}`);
   }
-  partes.push(rodapeLoja());
+  partes.push(rodapeLoja(os.tecnico));
   return partes.join("\n\n");
 }
 
 function mensagemPago(os) {
   return [cabecalhoLoja() + "\n━━━━━━━━━━━━━━",
-    `Olá${primeiroNome(os.cliente_nome) ? ", " + primeiroNome(os.cliente_nome) : ""}!`,
+    `${saudacaoHora()}${primeiroNome(os.cliente_nome) ? ", " + primeiroNome(os.cliente_nome) : ""}!`,
     `Confirmamos o recebimento do pagamento de *${reais(total(os))}* da *Ordem de serviço nº ${os.numero}* (${bonito(os.modelo) || os.tipo}). Obrigado! ✅` +
-      (os.status === "pronta" ? "\nSeu aparelho já está pronto para retirada." : ""),
-    `Comprovante e andamento:\n${linkCliente(os)}`, rodapeLoja()].join("\n\n");
+      (os.status === "pronta" ? `\n${aparelhoArtigo(os.tipo)[0].toUpperCase() + aparelhoArtigo(os.tipo).slice(1)} já está ${aparelhoArtigo(os.tipo).startsWith("sua") ? "pronta" : "pronto"} para retirada.` : ""),
+    `Comprovante e andamento:\n${linkCliente(os)}`, rodapeLoja(os.tecnico)].join("\n\n");
 }
 
 // ------------------------------------------------------------ estrutura
