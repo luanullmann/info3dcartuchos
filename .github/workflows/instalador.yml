@@ -1,0 +1,54 @@
+name: Gerar instalador do Printer's 3D Utility
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Dependências
+        run: python -m pip install pyinstaller -r requirements.txt
+
+      - name: Compilar o .exe
+        run: python -m PyInstaller --noconfirm Printers3DUtility.spec
+
+      - name: Instalar Inno Setup
+        run: choco install innosetup -y --no-progress
+
+      - name: Gerar o instalador
+        shell: pwsh
+        run: |
+          $ver = "${{ github.ref_name }}".TrimStart("v")
+          if (-not $ver -or $ver -eq "main") { $ver = "2.0" }
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$ver" "instalador\Printers3DUtility.iss"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Printers3DUtility-Setup
+          path: app/dist/Printers3DUtility-Setup.exe
+
+      - name: Publicar na página de downloads (Releases)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/dist/Printers3DUtility-Setup.exe
+          name: Printer's 3D Utility ${{ github.ref_name }}
+          body: |
+            Instalador do Printer's 3D Utility para Windows 10 e 11.
+            Baixe o **Printers3DUtility-Setup.exe**, execute e siga o assistente.
+            Se o Windows avisar "O Windows protegeu o computador", clique em **Mais informações** > **Executar assim mesmo**.

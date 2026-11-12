@@ -1,0 +1,15 @@
+{
+  "_leia": "Cadastre aqui modelos novos (ex.: L4260, L1250, L3210) depois de confirmar os dados numa impressora. Entradas cujo nome começa com '_' são ignoradas. Para ativar o exemplo, troque '_EXEMPLO-L4260' por 'L4260' e preencha com os dados verdadeiros.",
+  "modelos": {
+    "_EXEMPLO-L4260": {
+      "_obs": "Valores ILUSTRATIVOS copiados da L4160. NÃO use sem confirmar.",
+      "alias": ["L4266", "L4268"],
+      "read_key": [73, 8],
+      "write_key": "Arantifo",
+      "main_waste": {"oids": [48, 49, 47], "divider": 109.13},
+      "borderless_waste": {"oids": [50, 51, 47], "divider": 16.31},
+      "raw_waste_reset": {"48": 0, "49": 0, "47": 0, "52": 0, "53": 0, "54": 94, "50": 0, "51": 0, "55": 94, "28": 0},
+      "serial_number": {"de": 1604, "ate": 1614}
+    }
+  }
+}
