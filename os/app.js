@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794489925";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794500180";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -123,6 +123,7 @@ function casca(ativo, html) {
         <div><b>OS 3D</b><small>${esc(loja.nome)}</small></div></div>
       ${it("#/", "Painel")}
       ${it("#/nova", "Nova OS")}
+      ${it("#/caixa", "Caixa")}
       ${it("#/config", "Minha loja")}
       <div class="rodape">${banco.modo === "demo"
         ? "Modo demonstração: dados só neste navegador."
@@ -332,8 +333,10 @@ async function detalhe(id) {
       </div>
       <div class="acoes">
         <a class="bt" href="#/imprimir/${os.id}">Imprimir via</a>
-        ${os.status === "pronta" ? `<button class="bt prim" type="button" data-ir="entregue">Entregar ao cliente</button>` : ""}
-        ${os.status === "conserto" ? `<button class="bt prim" type="button" data-ir="pronta">Marcar como pronta</button>` : ""}
+        ${["orcamento", "aprovacao"].includes(os.status) ? `<button class="bt" type="button" data-ir="conserto">Aprovar no balcão</button>` : ""}
+        ${os.status === "conserto" ? `<button class="bt" type="button" data-ir="pronta">Marcar como pronta</button>` : ""}
+        ${os.status === "pronta" ? `<button class="bt" type="button" data-ir="entregue">Entregar</button>` : ""}
+        ${!["entregue", "recusada"].includes(os.status) ? `<button class="bt prim" type="button" id="concluir">✓ Concluir e dar baixa</button>` : ""}
       </div>
     </div>
     <div class="colunas">
@@ -474,6 +477,32 @@ async function detalhe(id) {
       abrirWhats(os.cliente_whatsapp, mensagem(os));
     detalhe(os.id);
   }));
+  $("#concluir")?.addEventListener("click", async () => {
+    const itensLimpos = itens.filter((i) => i.desc.trim() || numero(i.valor));
+    const t = itensLimpos.reduce((sm, i) => sm + numero(i.valor), 0);
+    const pergunta = t > 0 && !os.pago
+      ? `Concluir a OS #${os.numero}? Será marcada como PAGA (${reais(t)}) e ENTREGUE.`
+      : `Concluir a OS #${os.numero}? Será marcada como ENTREGUE.`;
+    if (!confirm(pergunta)) return;
+    const atual = (await banco.obterOS(os.id)) || os;
+    const ev = [...(atual.eventos || [])];
+    const campos = {
+      laudo: $("#laudo").value.trim(),
+      itens: itensLimpos,
+      garantia_dias: parseInt($("#garantia").value, 10) || 0,
+      status: "entregue",
+    };
+    if (t > 0 && !atual.pago) {
+      campos.pago = true;
+      campos.pago_em = new Date().toISOString();
+      ev.push({ em: new Date().toISOString(), texto: `Pagamento recebido no balcão (${reais(t)})` });
+    }
+    ev.push({ em: new Date().toISOString(), texto: "OS concluída e entregue" });
+    campos.eventos = ev;
+    os = await banco.atualizarOS(os.id, campos);
+    toast("OS concluída e com baixa");
+    detalhe(os.id);
+  });
   const marcarPago = async (pago) => {
     const atual = (await banco.obterOS(os.id)) || os;
     const ev = [...(atual.eventos || []), { em: new Date().toISOString(), texto: pago ? `Pagamento recebido (${reais(total(atual))})` : "Pagamento desmarcado" }];
@@ -584,6 +613,69 @@ async function config() {
   });
 }
 
+// ------------------------------------------------------------ caixa / relatório
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+async function caixa() {
+  const ordens = await banco.listarOS();
+  const dataDe = (o) => new Date(o.pago_em || o.atualizado_em || o.criado_em);
+  const soma = (arr) => arr.reduce((s, o) => s + total(o), 0);
+  const pagas = ordens.filter((o) => o.pago);
+  const agora = new Date();
+  const hojeStr = agora.toDateString();
+  const mesAtual = agora.getMonth();
+  const anoAtual = agora.getFullYear();
+  const ini = new Date(agora); ini.setDate(agora.getDate() - 6); ini.setHours(0, 0, 0, 0);
+
+  const noDia = pagas.filter((o) => dataDe(o).toDateString() === hojeStr);
+  const naSemana = pagas.filter((o) => dataDe(o) >= ini);
+  const noMes = pagas.filter((o) => { const d = dataDe(o); return d.getMonth() === mesAtual && d.getFullYear() === anoAtual; });
+  const noAno = pagas.filter((o) => dataDe(o).getFullYear() === anoAtual);
+  const aReceber = ordens.filter((o) => !o.pago && ["aprovacao", "conserto", "pronta"].includes(o.status));
+
+  const porMes = MESES.map((_, m) => soma(pagas.filter((o) => { const d = dataDe(o); return d.getFullYear() === anoAtual && d.getMonth() === m; })));
+  const maxMes = Math.max(1, ...porMes);
+  const anos = [...new Set(pagas.map((o) => dataDe(o).getFullYear()))].sort((a, b) => b - a);
+
+  const kpi = (titulo, arr) => `<div class="kpi" style="cursor:default">
+      <span>${titulo}</span><b>${reais(soma(arr))}</b>
+      <span style="font-size:12px">${arr.length} OS paga${arr.length === 1 ? "" : "s"}</span></div>`;
+
+  casca("#/caixa", `
+    <div class="topo"><div><h1>Caixa</h1><div class="sub">Somente OS marcadas como pagas entram aqui</div></div></div>
+    <div class="kpis">
+      ${kpi("Hoje", noDia)}
+      ${kpi("Últimos 7 dias", naSemana)}
+      ${kpi("Este mês (" + MESES[mesAtual] + ")", noMes)}
+      ${kpi("Este ano (" + anoAtual + ")", noAno)}
+    </div>
+    <section class="card">
+      <div class="topo" style="margin-bottom:10px"><h2 style="margin:0">Recebido por mês · ${anoAtual}</h2>
+        <b>${reais(soma(noAno))}</b></div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${MESES.map((nm, m) => `<div style="display:flex;align-items:center;gap:10px;font-size:13px">
+          <span style="width:34px;color:var(--suave)">${nm}</span>
+          <div style="flex:1;background:#eef0f4;border-radius:6px;height:18px;overflow:hidden">
+            <div style="height:100%;width:${(porMes[m] / maxMes * 100).toFixed(1)}%;background:${m === mesAtual ? "var(--acento)" : "var(--marinho)"};border-radius:6px"></div></div>
+          <span style="width:110px;text-align:right">${porMes[m] ? reais(porMes[m]) : "—"}</span>
+        </div>`).join("")}
+      </div>
+    </section>
+    <div class="grade">
+      <section class="card"><h2>A receber</h2>
+        <div style="font-size:26px;font-weight:700;color:#B45309">${reais(soma(aReceber))}</div>
+        <div class="sub">${aReceber.length} OS aprovadas, em conserto ou prontas, ainda não pagas</div>
+      </section>
+      <section class="card"><h2>Total geral recebido</h2>
+        <div style="font-size:26px;font-weight:700;color:var(--verde)">${reais(soma(pagas))}</div>
+        <div class="sub">${pagas.length} OS pagas${anos.length ? " · desde " + anos[anos.length - 1] : ""}</div>
+      </section>
+    </div>
+    ${anos.length > 1 ? `<section class="card"><h2>Por ano</h2><div class="tabela"><div style="min-width:280px">
+      ${anos.map((a) => { const arr = pagas.filter((o) => dataDe(o).getFullYear() === a); return `<div class="lin" style="display:flex;justify-content:space-between;grid-template-columns:none;min-width:0"><span>${a}</span><b>${reais(soma(arr))}</b><span class="sub">${arr.length} OS</span></div>`; }).join("")}
+    </div></div></section>` : ""}`);
+}
+
 // ------------------------------------------------------------ login (nuvem)
 function telaLogin() {
   raiz.innerHTML = `
@@ -642,6 +734,7 @@ async function rota() {
     if ((m = h.match(/^#\/imprimir\/(.+)$/))) return await imprimir(m[1]);
     if (h === "#/nova") return await nova();
     if (h === "#/config") return await config();
+    if (h === "#/caixa") return await caixa();
     return await painel();
   } catch (err) {
     console.error(err);
