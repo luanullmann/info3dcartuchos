@@ -14,6 +14,9 @@ create table if not exists lojas (
 
 alter table lojas add column if not exists cnpj text;
 alter table lojas add column if not exists logo text;
+alter table lojas add column if not exists pix_tipo text default 'cnpj';
+alter table lojas add column if not exists pix_chave text;
+alter table lojas add column if not exists pix_cidade text;
 
 create table if not exists membros (
   user_id uuid primary key references auth.users on delete cascade,
@@ -60,6 +63,8 @@ create table if not exists ordens (
   criado_em timestamptz not null default now(),
   atualizado_em timestamptz not null default now()
 );
+alter table ordens add column if not exists pago boolean not null default false;
+alter table ordens add column if not exists pagamento_informado boolean not null default false;
 create index if not exists ordens_loja_numero on ordens (loja_id, numero desc);
 
 -- número sequencial por loja
@@ -114,7 +119,9 @@ language sql stable security definer set search_path = public as $$
     'laudo', o.laudo, 'itens', o.itens, 'garantia_dias', o.garantia_dias,
     'cliente', split_part(coalesce(o.cliente_nome, ''), ' ', 1),
     'criado_em', o.criado_em, 'eventos', o.eventos,
-    'loja_nome', l.nome, 'loja_whatsapp', l.whatsapp)
+    'loja_nome', l.nome, 'loja_whatsapp', l.whatsapp,
+    'pix_tipo', l.pix_tipo, 'pix_chave', l.pix_chave, 'pix_cidade', l.pix_cidade,
+    'pago', o.pago, 'pagamento_informado', o.pagamento_informado)
   from ordens o join lojas l on l.id = o.loja_id
   where o.token = t
 $$;
@@ -133,7 +140,20 @@ begin
   return found;
 end $$;
 
+create or replace function os_informar_pagamento(t text) returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  update ordens set
+    pagamento_informado = true,
+    atualizado_em = now(),
+    eventos = eventos || jsonb_build_array(jsonb_build_object(
+      'em', now(), 'texto', 'Cliente avisou que pagou por Pix (confira no banco)'))
+  where token = t and not pago and not pagamento_informado;
+  return found;
+end $$;
+
 grant execute on function os_publica(text) to anon, authenticated;
+grant execute on function os_informar_pagamento(text) to anon, authenticated;
 grant execute on function os_responder(text, boolean) to anon, authenticated;
 grant execute on function criar_loja(text) to authenticated;
 

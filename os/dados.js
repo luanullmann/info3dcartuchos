@@ -16,6 +16,9 @@ const LOJA_PADRAO = {
   tecnicos: "",
   cnpj: "",
   logo: "",
+  pix_tipo: "cnpj",
+  pix_chave: "",
+  pix_cidade: "",
   termos:
     "Aparelhos não retirados em 90 dias após o aviso de pronto poderão ser descartados. " +
     "A garantia cobre somente o serviço e as peças trocadas descritos nesta OS.",
@@ -149,6 +152,16 @@ class BancoDemo {
   async enviarLogo(blob) {
     return await blobParaDataURL(blob);
   }
+  async informarPagamento(token) {
+    const d = this.#ler();
+    const os = d.ordens.find((o) => o.token === token);
+    if (!os || os.pago || os.pagamento_informado) return false;
+    os.pagamento_informado = true;
+    os.atualizado_em = new Date().toISOString();
+    os.eventos.push({ em: os.atualizado_em, texto: "Cliente avisou que pagou por Pix (confira no banco)" });
+    this.#gravar(d);
+    return true;
+  }
   async osPublica(token) {
     const d = this.#ler();
     const os = d.ordens.find((o) => o.token === token);
@@ -170,6 +183,7 @@ class BancoDemo {
 }
 
 function publico(os, loja) {
+  // mesmos campos que a função os_publica do Supabase
   return {
     numero: os.numero,
     tipo: os.tipo,
@@ -183,6 +197,11 @@ function publico(os, loja) {
     eventos: os.eventos,
     loja_nome: loja.nome,
     loja_whatsapp: loja.whatsapp,
+    pix_tipo: loja.pix_tipo,
+    pix_chave: loja.pix_chave,
+    pix_cidade: loja.pix_cidade,
+    pago: !!os.pago,
+    pagamento_informado: !!os.pagamento_informado,
   };
 }
 
@@ -217,9 +236,10 @@ class BancoNuvem {
   }
   async salvarLoja(dados) {
     const l = await this.loja();
-    const { nome, whatsapp, endereco, tecnicos, termos, cnpj, logo } = dados;
+    const { nome, whatsapp, endereco, tecnicos, termos, cnpj, logo, pix_tipo, pix_chave, pix_cidade } = dados;
     this.#ok(await this.sb.from("lojas")
-      .update({ nome, whatsapp, endereco, tecnicos, termos, cnpj, logo }).eq("id", l.id));
+      .update({ nome, whatsapp, endereco, tecnicos, termos, cnpj, logo, pix_tipo, pix_chave, pix_cidade })
+      .eq("id", l.id));
   }
   async listarOS() {
     return this.#ok(await this.sb.from("ordens").select("*")
@@ -272,6 +292,9 @@ class BancoNuvem {
   }
   async responder(token, aprovar) {
     return this.#ok(await this.sb.rpc("os_responder", { t: token, aprovar }));
+  }
+  async informarPagamento(token) {
+    return this.#ok(await this.sb.rpc("os_informar_pagamento", { t: token }));
   }
 }
 

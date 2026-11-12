@@ -30,6 +30,13 @@ A chave *anon* pode ficar pública: a segurança é feita pelo próprio banco
 - Via impressa (cliente e loja) com termos e assinatura
 - Configurações da loja
 
+## Pix
+Em **Minha loja**, preencha o tipo e a chave Pix e a cidade. Quando o cliente aprova o
+orçamento, o link mostra o QR Code e o "copia e cola" com o valor exato da OS.
+O dinheiro cai direto na sua conta, sem taxa. O sistema **não confirma sozinho**:
+o cliente aperta "Já paguei", você confere no app do banco e clica em **Marcar como pago**.
+(Bibliotecas: qrcode-generator, MIT, em `vendor/`.)
+
 ## Próximos passos
 - Usuários separados por funcionário
 - Estoque de peças e caixa

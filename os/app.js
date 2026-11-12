@@ -51,11 +51,11 @@ function mensagem(os) {
       return `${oi}\nO orçamento da sua ${ap} (OS #${os.numero}) está pronto.\n` +
         (os.laudo ? `${os.laudo}\n` : "") + `${itens}\nTotal: ${reais(total(os))}` +
         (os.garantia_dias ? ` · garantia de ${os.garantia_dias} dias` : "") +
-        `\n\nAprove ou recuse por aqui: ${link}`;
+        `\n\nAprove ou recuse por aqui${loja.pix_chave ? " (dá para pagar por Pix no mesmo link)" : ""}: ${link}`;
     }
     case "pronta":
       return `${oi}\nSua ${ap} (OS #${os.numero}) está pronta para retirar!` +
-        (total(os) ? ` Valor: ${reais(total(os))}.` : "") +
+        (total(os) ? ` Valor: ${reais(total(os))}${os.pago ? " (já pago, obrigado!)" : loja.pix_chave ? " (pode pagar por Pix no link)" : ""}.` : "") +
         (loja.endereco ? `\nEndereço: ${loja.endereco}` : "") + `\nDetalhes: ${link}`;
     case "conserto":
       return `${oi}\nSua ${ap} (OS #${os.numero}) já está em conserto. Acompanhe: ${link}`;
@@ -327,6 +327,17 @@ async function detalhe(id) {
           </div>
           ${os.cliente_whatsapp ? "" : `<div class="sub" style="margin-top:8px">Cliente sem WhatsApp cadastrado.</div>`}
         </section>
+        ${total(os) > 0 ? `<section class="card">
+          <h2>Pagamento · ${reais(total(os))}</h2>
+          <div style="margin-bottom:12px">${os.pago
+            ? `<span class="tag verde">Pago</span>`
+            : os.pagamento_informado
+              ? `<span class="tag laranja">Cliente avisou que pagou por Pix</span><div class="sub" style="margin-top:6px">Confira no app do banco antes de marcar como pago.</div>`
+              : `<span class="tag cinza">Pendente</span>`}</div>
+          <div class="acoes">${os.pago
+            ? `<button class="bt peq" type="button" id="pago-nao">Desfazer pagamento</button>`
+            : `<button class="bt peq prim" type="button" id="pago-sim">Marcar como pago</button>`}</div>
+        </section>` : ""}
         <section class="card">
           <h2>Andamento</h2>
           <div class="tempo">${(os.eventos || []).slice().reverse().map((ev) =>
@@ -409,6 +420,15 @@ async function detalhe(id) {
       abrirWhats(os.cliente_whatsapp, mensagem(os));
     detalhe(os.id);
   }));
+  const marcarPago = async (pago) => {
+    const atual = (await banco.obterOS(os.id)) || os;
+    const ev = [...(atual.eventos || []), { em: new Date().toISOString(), texto: pago ? `Pagamento recebido (${reais(total(atual))})` : "Pagamento desmarcado" }];
+    os = await banco.atualizarOS(os.id, { pago, pagamento_informado: pago ? atual.pagamento_informado : false, eventos: ev });
+    toast(pago ? "Marcado como pago" : "Pagamento desmarcado");
+    detalhe(os.id);
+  };
+  $("#pago-sim")?.addEventListener("click", () => marcarPago(true));
+  $("#pago-nao")?.addEventListener("click", () => confirm("Desfazer o pagamento desta OS?") && marcarPago(false));
   $("#zap").addEventListener("click", () => abrirWhats(os.cliente_whatsapp, $("#msg").textContent));
   $("#copiar").addEventListener("click", async () => {
     try { await navigator.clipboard.writeText(linkCliente(os)); toast("Link copiado"); }
@@ -468,6 +488,16 @@ async function config() {
         </div>
       </div>
       <label class="campo">Endereço<input type="text" name="endereco" value="${esc(loja.endereco)}"></label>
+      <fieldset class="card" style="border-color:var(--borda2);display:flex;flex-direction:column;gap:12px;padding:14px">
+        <legend style="font-weight:600;font-size:14px;padding:0 6px">Pix para o cliente pagar pelo link</legend>
+        <div class="grade">
+          <label class="campo">Tipo de chave<select name="pix_tipo">${[["cnpj", "CNPJ"], ["cpf", "CPF"], ["telefone", "Telefone"], ["email", "E-mail"], ["aleatoria", "Chave aleatória"]]
+            .map(([v, t]) => `<option value="${v}" ${loja.pix_tipo === v ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+          <label class="campo">Chave Pix<input type="text" name="pix_chave" value="${esc(loja.pix_chave)}" placeholder="Deixe vazio para não oferecer Pix"></label>
+          <label class="campo">Cidade (como está no banco)<input type="text" name="pix_cidade" value="${esc(loja.pix_cidade)}" placeholder="Magé"></label>
+        </div>
+        <div class="sub">O dinheiro cai direto na sua conta, sem taxa do sistema. Confira o primeiro Pix de teste antes de usar com cliente.</div>
+      </fieldset>
       <label class="campo">Técnicos (separados por vírgula)<input type="text" name="tecnicos" value="${esc(loja.tecnicos)}" placeholder="Luan, João"></label>
       <label class="campo">Termos que saem na via impressa<textarea name="termos" rows="4">${esc(loja.termos)}</textarea></label>
       <div><button class="bt prim" type="submit">Salvar</button></div>
@@ -491,7 +521,8 @@ async function config() {
     const f = e.target;
     await banco.salvarLoja({ nome: f.nome.value.trim(), whatsapp: f.whatsapp.value.trim(),
       endereco: f.endereco.value.trim(), tecnicos: f.tecnicos.value.trim(), termos: f.termos.value.trim(),
-      cnpj: formatarCNPJ(f.cnpj.value), logo });
+      cnpj: formatarCNPJ(f.cnpj.value), logo,
+      pix_tipo: f.pix_tipo.value, pix_chave: f.pix_chave.value.trim(), pix_cidade: f.pix_cidade.value.trim() });
     loja = await banco.loja();
     toast("Dados da loja salvos");
     config();

@@ -18,13 +18,17 @@ header small{color:#C9D1E3;font-size:13px}header h1{font-size:22px;margin:6px 0 
 .barras{display:flex;gap:6px;margin:8px 0}.barras span{flex:1;height:6px;border-radius:3px;background:#D5D9E2}
 .barras .f{background:var(--verde)}.barras .a{background:#B45309}
 .grande{min-height:52px;font-size:16px}
+.qr{display:flex;justify-content:center;margin:10px 0}.qr img{width:220px;height:220px;image-rendering:pixelated}
+.copia{font-family:Consolas,monospace;font-size:11px;word-break:break-all;background:#F4F5F8;border-radius:8px;padding:10px;max-height:72px;overflow:auto}
 </style>
 <script src="config.js"></script>
+<script src="vendor/qrcode.js"></script>
 </head>
 <body>
 <div class="pg" id="raiz"><p class="vazio">Carregando…</p></div>
 <script type="module">
 import { criarBanco, STATUS } from "./dados.js";
+import { pixCopiaECola } from "./pix.js";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const num = (s) => Number(String(s ?? "").replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
 const reais = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -33,6 +37,33 @@ const token = new URLSearchParams(location.search).get("t") || "";
 const banco = await criarBanco();
 const PASSOS = ["orcamento", "aprovacao", "conserto", "pronta", "entregue"];
 const NOMES = ["Entrada", "Orçamento", "Conserto", "Pronta", "Entregue"];
+
+function blocoPix(os, tot) {
+  if (!os.pix_chave || !(tot > 0) || !["conserto", "pronta", "entregue"].includes(os.status)) return "";
+  if (os.pago) return `<section class="card"><span class="tag verde">Pagamento confirmado</span><p style="margin:8px 0 0">Obrigado!</p></section>`;
+  if (os.pagamento_informado) return `<section class="card"><span class="tag laranja">Pagamento informado</span><p style="margin:8px 0 0;line-height:1.5">A loja vai conferir e confirmar. Obrigado!</p></section>`;
+  let codigo;
+  try {
+    codigo = pixCopiaECola({ chave: os.pix_chave, tipo: os.pix_tipo, nome: os.loja_nome, cidade: os.pix_cidade, valor: tot, txid: "OS" + os.numero });
+  } catch { return ""; }
+  let img = "";
+  try {
+    const q = qrcode(0, "M");
+    q.addData(codigo);
+    q.make();
+    img = q.createDataURL(6, 2);
+  } catch { /* sem QR: fica só o copia e cola */ }
+  return `<section class="card">
+    <h2 style="margin:0 0 4px">Pagar com Pix · ${reais(tot)}</h2>
+    <div class="sub">Pode pagar agora ou na retirada. Abra o app do seu banco em Pix > Copia e cola${img ? " ou leia o QR Code" : ""}.</div>
+    ${img ? `<div class="qr"><img src="${img}" alt="QR Code do Pix de ${reais(tot)}"></div>` : ""}
+    <div class="copia" id="pix-cod">${esc(codigo)}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+      <button class="bt prim" type="button" id="pix-copiar">Copiar código Pix</button>
+      <button class="bt" type="button" id="pix-paguei">Já paguei</button>
+    </div>
+  </section>`;
+}
 
 async function mostra() {
   let os;
@@ -61,6 +92,7 @@ async function mostra() {
       ${os.status === "aprovacao" ? `
         <button class="bt zap grande" type="button" id="sim">Aprovar orçamento</button>
         <button class="bt grande" type="button" id="nao">Recusar e retirar o aparelho</button>` : ""}
+      ${blocoPix(os, tot)}
       ${zap ? `<a class="bt" href="https://wa.me/${zap.length <= 11 ? "55" + zap : zap}" target="_blank" rel="noopener">Falar com a loja no WhatsApp</a>` : ""}
     </div>`;
   const responde = async (aprovar) => {
@@ -72,6 +104,16 @@ async function mostra() {
     } catch (e) { alert("Não deu certo: " + e.message); }
     mostra();
   };
+  document.getElementById("pix-copiar")?.addEventListener("click", async () => {
+    const cod = document.getElementById("pix-cod").textContent;
+    try { await navigator.clipboard.writeText(cod); document.getElementById("pix-copiar").textContent = "Copiado! Cole no app do banco"; }
+    catch { prompt("Copie o código Pix:", cod); }
+  });
+  document.getElementById("pix-paguei")?.addEventListener("click", async () => {
+    if (!confirm("Confirma que já fez o Pix?")) return;
+    try { await banco.informarPagamento(token); } catch (e) { alert("Não deu certo: " + e.message); }
+    mostra();
+  });
   document.getElementById("sim")?.addEventListener("click", () => responde(true));
   document.getElementById("nao")?.addEventListener("click", () => responde(false));
 }
