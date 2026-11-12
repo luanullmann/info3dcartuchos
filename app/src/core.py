@@ -364,9 +364,17 @@ def ler_informacoes(imp) -> dict:
         pass
     if not (info.get("firmware") or info.get("serie") or info.get("status")
             or info.get("almofadas")):
+        if not getattr(imp, "hostname", None):  # USB (impressora de rede tem hostname)
+            raise RuntimeError(
+                "A impressora não respondeu pelo USB.\n\n"
+                "• Feche o WIC Reset e qualquer programa da Epson (eles prendem a USB).\n"
+                "• Troque a porta USB (de preferência uma traseira, direto no PC, sem hub) "
+                "ou o cabo.\n"
+                "• Desligue e ligue a impressora e tente de novo.\n"
+                "• Se não ler de jeito nenhum, use a conexão Wi-Fi / rede.")
         raise RuntimeError(
             "A impressora não respondeu.\nConfira se ela está ligada, o IP "
-            "(ou o cabo USB) e se o PC está na mesma rede.")
+            "e se o PC está na mesma rede.")
     # EEPROM liberada? (firmware novo bloqueia gravação pela rede)
     info["eeprom_acessivel"] = info.get("almofadas") is not None
     return info

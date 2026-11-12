@@ -35,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "3.1"
+VERSAO = "3.2"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -272,7 +272,6 @@ class App(tk.Tk):
         self._abas()
         self._rodape()
         self.after(100, self._processa_fila)
-        self.after(800, lambda: self.auto_detectar(silencioso=True))
         self.escreve(f"{NOME} {VERSAO} - {len(self.modelos)} modelos Epson no banco.")
 
     # ------------------------------------------------------------ estilo
@@ -1093,9 +1092,7 @@ class App(tk.Tk):
             via = "cabo USB" if r["conexao"] == core.USB else f"rede ({r['ip']})"
             self.escreve(f"✔ Encontrada: {r.get('modelo') or 'modelo não informado'} pelo {via}")
             self.status.set(f"Encontrada: {r.get('modelo') or 'Epson'} pelo {via}")
-            if r.get("modelo") and core.modelo_suportado(r["modelo"]):
-                self.ler()
-            elif r.get("modelo"):
+            if r.get("modelo"):
                 self.lb_info.configure(text=f"{r['modelo']} encontrada. Clique em 'Ler contadores'.")
             else:
                 aviso = ("Impressora encontrada pelo USB, mas ela não informou o modelo.\n"
