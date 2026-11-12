@@ -34,7 +34,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "2.1"
+VERSAO = "2.2"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -425,6 +425,7 @@ class App(tk.Tk):
                        "(precisa do driver instalado).").grid(row=0, column=0, columnspan=3, sticky="w")
         ttk.Label(lp, text="Impressora (USB):").grid(row=1, column=0, sticky="w", pady=6)
         self.cb_imp_m = ttk.Combobox(lp, textvariable=self.imp_nome_m, width=30, state="readonly")
+        self.cb_imp_m.bind("<<ComboboxSelected>>", lambda _e: self._lembrar_impressora(self.imp_nome_m.get()))
         self.cb_imp_m.grid(row=1, column=1, sticky="w")
         ttk.Button(lp, text="Atualizar", command=self.carregar_impressoras).grid(row=1, column=2, padx=6)
         for i, chave in enumerate(("bicos", "cl1", "cl2", "cl3")):
@@ -591,6 +592,7 @@ class App(tk.Tk):
         imp.pack(fill="x")
         self.imp_nome = tk.StringVar()
         self.cb_imp = ttk.Combobox(imp, textvariable=self.imp_nome, width=34, state="readonly")
+        self.cb_imp.bind("<<ComboboxSelected>>", lambda _e: self._lembrar_impressora(self.imp_nome.get()))
         self.cb_imp.grid(row=0, column=0, sticky="w")
         ttk.Button(imp, text="Atualizar", command=self.carregar_impressoras).grid(row=0, column=1, padx=6)
         ttk.Label(imp, text="A impressora precisa estar instalada com o driver no Windows.",
@@ -667,6 +669,16 @@ class App(tk.Tk):
             t.insert("end", txt + "\n\n")
         t.configure(state="disabled")
 
+    def _lembrar_impressora(self, nome):
+        nome = (nome or "").strip()
+        if not nome:
+            return
+        self.imp_nome.set(nome)
+        self.imp_nome_m.set(nome)
+        core.salvar_ajuste("impressora_windows", nome)
+        if nome in impressao.DESCONECTADAS:
+            self.escreve(f"Atenção: o Windows diz que '{nome}' está desconectada/offline.")
+
     def carregar_impressoras(self):
         self._impressoras_carregadas = True
 
@@ -674,11 +686,16 @@ class App(tk.Tk):
             lista, padrao = r
             self.cb_imp["values"] = lista
             self.cb_imp_m["values"] = lista
-            esc = impressao.escolher_impressora(lista, padrao, self.modelo.get().strip())
+            esc = impressao.escolher_impressora(
+                lista, padrao, self.modelo.get().strip(),
+                atual=self.imp_nome.get().strip(), lembrada=core.ler_ajuste("impressora_windows"))
             if esc:
                 self.imp_nome.set(esc)
                 self.imp_nome_m.set(esc)
-            self.escreve(f"{len(lista)} impressora(s) instalada(s) no Windows.")
+            off = len([n for n in lista if n in impressao.DESCONECTADAS])
+            self.escreve(f"{len(lista)} impressora(s) instalada(s) no Windows"
+                         + (f" ({off} desconectada(s), listadas no fim)." if off else ".")
+                         + (f" Usando: {esc}" if esc else ""))
         self.executar("Listando impressoras", impressao.listar_impressoras, fim)
 
     def imprimir_teste(self):

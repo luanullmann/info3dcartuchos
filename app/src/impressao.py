@@ -87,30 +87,52 @@ def _powershell(script: str, timeout: int = 60) -> str:
 
 
 def listar_impressoras() -> tuple[list[str], str | None]:
-    """(impressoras instaladas, impressora padrão)."""
+    """(impressoras instaladas, impressora padrão). As conectadas vêm primeiro."""
     saida = _powershell(
         "[Console]::OutputEncoding=[Text.Encoding]::UTF8\n"
         "Add-Type -AssemblyName System.Drawing\n"
         "$p = New-Object System.Drawing.Printing.PrinterSettings\n"
         "Write-Output ('PADRAO|' + $p.PrinterName)\n"
+        "try {\n"
+        "  foreach ($i in Get-CimInstance Win32_Printer) {\n"
+        "    $off = [int]($i.WorkOffline -or $i.PrinterStatus -eq 7 -or $i.ExtendedPrinterStatus -eq 7)\n"
+        "    Write-Output ('INFO|' + $off + '|' + $i.Name)\n"
+        "  }\n"
+        "} catch { }\n"
         "foreach ($n in [System.Drawing.Printing.PrinterSettings]::InstalledPrinters) { Write-Output ('IMP|' + $n) }\n")
-    lista, padrao = [], None
+    lista, padrao, offline = [], None, set()
     for linha in saida.splitlines():
         if linha.startswith("IMP|"):
             lista.append(linha[4:].strip())
         elif linha.startswith("PADRAO|"):
             padrao = linha[7:].strip() or None
+        elif linha.startswith("INFO|"):
+            _, off, nome = linha.split("|", 2)
+            if off.strip() == "1":
+                offline.add(nome.strip())
+    global DESCONECTADAS
+    DESCONECTADAS = offline
+    # conectadas primeiro, mantendo a ordem do Windows
+    lista.sort(key=lambda n: n in offline)
     return lista, padrao
 
 
-def escolher_impressora(lista: list[str], padrao: str | None, modelo: str | None) -> str | None:
-    if modelo:
-        for n in lista:
-            if modelo.upper() in n.upper():
-                return n
-    for n in lista:
-        if "EPSON" in n.upper():
+DESCONECTADAS: set[str] = set()
+
+
+def escolher_impressora(lista: list[str], padrao: str | None, modelo: str | None,
+                        atual: str | None = None, lembrada: str | None = None) -> str | None:
+    """Escolha da impressora, nesta ordem:
+    1) a que já está escolhida na tela; 2) a última usada (salva);
+    3) a do modelo que está conectada (padrão do Windows primeiro); 4) qualquer Epson conectada."""
+    for n in (atual, lembrada):
+        if n and n in lista:
             return n
+    ligadas = [n for n in lista if n not in DESCONECTADAS] or lista
+    for grupo in ([n for n in ligadas if modelo and modelo.upper() in n.upper()],
+                  [n for n in ligadas if "EPSON" in n.upper()]):
+        if grupo:
+            return padrao if padrao in grupo else grupo[0]
     return padrao or (lista[0] if lista else None)
 
 

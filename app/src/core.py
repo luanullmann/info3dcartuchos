@@ -401,3 +401,30 @@ def _seguro(fn):
         return fn()
     except Exception:  # noqa: BLE001
         return None
+
+
+# ------------------------------------------------------------ ajustes do usuário
+def _arquivo_ajustes() -> str:
+    return os.path.join(pasta_dados(), "ajustes.json")
+
+
+def ler_ajuste(chave: str, padrao=None):
+    try:
+        with open(_arquivo_ajustes(), encoding="utf-8") as f:
+            return json.load(f).get(chave, padrao)
+    except (OSError, ValueError):
+        return padrao
+
+
+def salvar_ajuste(chave: str, valor) -> None:
+    try:
+        with open(_arquivo_ajustes(), encoding="utf-8") as f:
+            dados = json.load(f)
+    except (OSError, ValueError):
+        dados = {}
+    dados[chave] = valor
+    try:
+        with open(_arquivo_ajustes(), "w", encoding="utf-8") as f:
+            json.dump(dados, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
