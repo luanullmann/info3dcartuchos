@@ -139,6 +139,9 @@ EQUIVALENTES = {
     # lendo os contadores antes do reset permanente.
     "L1250": "ET-2812",
     "L1210": "ET-2812",
+    # geração anterior (família L3150/L4160, chave "Arantifo"). A L3110 é a
+    # versão só-USB da L3150.
+    "L3110": "L3150",
 }
 _cache_embutidos: Optional[dict] = None
 
@@ -150,8 +153,13 @@ def modelos_embutidos() -> dict:
         base = _epc.EpsonPrinter().PRINTER_CONFIG
         _cache_embutidos = {}
         for nome, igual in EQUIVALENTES.items():
-            if igual in base and nome not in base:
-                ent = copy.deepcopy(base[igual])
+            # segue o atalho "same-as" até achar a configuração de verdade
+            cur, visto = igual, set()
+            while isinstance(base.get(cur), dict) and base[cur].get("same-as") and cur not in visto:
+                visto.add(cur)
+                cur = base[cur]["same-as"]
+            if cur in base and nome not in base:
+                ent = copy.deepcopy(base[cur])
                 ent.pop("alias", None)
                 ent.pop("same-as", None)
                 _cache_embutidos[nome] = ent
