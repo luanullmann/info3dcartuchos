@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794456435";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794489925";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -40,29 +40,77 @@ function abrirWhats(whatsapp, texto) {
   window.open(url, "_blank", "noopener");
 }
 
+// Nome "RENATA SILVA" -> "Renata"; modelo "EPSON L3150" -> "Epson L3150"
+function primeiroNome(n) {
+  const p = (n || "").trim().split(/\s+/)[0] || "";
+  return p ? p[0].toUpperCase() + p.slice(1).toLowerCase() : "";
+}
+function bonito(t) {
+  return (t || "").trim().split(/\s+/).map((w) =>
+    /\d/.test(w) || w.length <= 2 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+}
+
+// Cabeçalho e rodapé com os dados da loja (WhatsApp: *negrito*, _itálico_)
+function cabecalhoLoja() {
+  return `*${loja.nome}*` + (loja.cnpj ? `\nCNPJ ${loja.cnpj}` : "");
+}
+function rodapeLoja() {
+  const l = [];
+  if (loja.endereco) l.push(`📍 ${loja.endereco}`);
+  if (loja.whatsapp) l.push(`📞 WhatsApp ${loja.whatsapp}`);
+  l.push("_Qualquer dúvida, é só responder esta mensagem._");
+  return l.join("\n");
+}
+
 function mensagem(os) {
-  const nome = (os.cliente_nome || "").split(" ")[0];
-  const ap = os.modelo || os.tipo || "aparelho";
-  const oi = `Olá${nome ? " " + nome : ""}! Aqui é da ${loja.nome}.`;
+  const nome = primeiroNome(os.cliente_nome);
+  const ola = `Olá${nome ? ", " + nome : ""}! Tudo bem?`;
+  const ap = bonito(os.modelo) || os.tipo || "aparelho";
+  const osn = `*Ordem de serviço nº ${os.numero}*\nAparelho: ${ap}${os.serie ? ` · série ${os.serie}` : ""}`;
   const link = linkCliente(os);
+  const sep = "━━━━━━━━━━━━━━";
+  const partes = [cabecalhoLoja() + "\n" + sep, ola];
+
   switch (os.status) {
     case "aprovacao": {
-      const itens = (os.itens || []).map((i) => `• ${i.desc}: ${reais(numero(i.valor))}`).join("\n");
-      return `${oi}\nO orçamento da sua ${ap} (OS #${os.numero}) está pronto.\n` +
-        (os.laudo ? `${os.laudo}\n` : "") + `${itens}\nTotal: ${reais(total(os))}` +
-        (os.garantia_dias ? ` · garantia de ${os.garantia_dias} dias` : "") +
-        "\nPagamento: Pix pelo link ou cartão (débito/crédito) direto na loja, na retirada." +
-        `\n\nAprove ou recuse por aqui${loja.pix_chave ? " (dá para pagar por Pix no mesmo link)" : ""}: ${link}`;
+      partes.push(`O orçamento do seu aparelho está pronto.\n\n${osn}`);
+      if (os.laudo) partes.push(`*Diagnóstico*\n${os.laudo.trim()}`);
+      const itens = (os.itens || []).filter((i) => (i.desc || "").trim())
+        .map((i) => `• ${i.desc.trim()}: ${reais(numero(i.valor))}`).join("\n");
+      partes.push(`*Orçamento*\n${itens}\n*Total: ${reais(total(os))}*` +
+        (os.garantia_dias ? `\nGarantia: ${os.garantia_dias} dias no serviço` : ""));
+      partes.push("*Formas de pagamento*\n" +
+        (loja.pix_chave ? "• Pix, pelo link abaixo\n" : "") +
+        "• Cartão de débito ou crédito, direto na loja, na retirada" +
+        (loja.pix_chave ? "" : "\n• Pix, direto na loja"));
+      partes.push(`*Aprovar ou recusar o orçamento:*\n${link}`);
+      break;
     }
     case "pronta":
-      return `${oi}\nSua ${ap} (OS #${os.numero}) está pronta para retirar!` +
-        (total(os) ? ` Valor: ${reais(total(os))}${os.pago ? " (já pago, obrigado!)" : " (Pix pelo link, ou cartão/Pix direto na loja)"}.` : "") +
-        (loja.endereco ? `\nEndereço: ${loja.endereco}` : "") + `\nDetalhes: ${link}`;
+      partes.push(`Seu aparelho está *pronto para retirada*! ✅\n\n${osn}` +
+        (total(os) ? `\nValor: *${reais(total(os))}*${os.pago ? " (pago, obrigado!)" : ""}` : ""));
+      if (total(os) && !os.pago) partes.push("*Formas de pagamento*\n" +
+        (loja.pix_chave ? "• Pix, pelo link abaixo\n" : "") + "• Cartão de débito ou crédito, na loja");
+      partes.push(`Acompanhe e veja os detalhes:\n${link}`);
+      break;
     case "conserto":
-      return `${oi}\nSua ${ap} (OS #${os.numero}) já está em conserto. Acompanhe: ${link}`;
+      partes.push(`Seu aparelho já está em conserto. Avisaremos assim que estiver pronto.\n\n${osn}`);
+      partes.push(`Acompanhe pelo link:\n${link}`);
+      break;
     default:
-      return `${oi}\nRecebemos sua ${ap} (OS #${os.numero}). Acompanhe o andamento por aqui: ${link}`;
+      partes.push(`Recebemos o seu aparelho. Em breve enviaremos o orçamento.\n\n${osn}`);
+      partes.push(`Acompanhe pelo link:\n${link}`);
   }
+  partes.push(rodapeLoja());
+  return partes.join("\n\n");
+}
+
+function mensagemPago(os) {
+  return [cabecalhoLoja() + "\n━━━━━━━━━━━━━━",
+    `Olá${primeiroNome(os.cliente_nome) ? ", " + primeiroNome(os.cliente_nome) : ""}!`,
+    `Confirmamos o recebimento do pagamento de *${reais(total(os))}* da *Ordem de serviço nº ${os.numero}* (${bonito(os.modelo) || os.tipo}). Obrigado! ✅` +
+      (os.status === "pronta" ? "\nSeu aparelho já está pronto para retirada." : ""),
+    `Comprovante e andamento:\n${linkCliente(os)}`, rodapeLoja()].join("\n\n");
 }
 
 // ------------------------------------------------------------ estrutura
@@ -360,7 +408,11 @@ async function detalhe(id) {
   };
   desenhaFotos();
 
-  const msg = () => { $("#msg").textContent = mensagem({ ...os, itens, laudo: $("#laudo").value }); };
+  const msg = () => {
+    // com orçamento preenchido, a prévia já mostra a mensagem de orçamento
+    const st = os.status === "orcamento" && itens.some((i) => (i.desc || "").trim()) ? "aprovacao" : os.status;
+    $("#msg").textContent = mensagem({ ...os, itens, laudo: $("#laudo").value, status: st });
+  };
   const desenhaItens = () => {
     $("#itens").innerHTML = itens.map((i, n) => `
       <div class="item">
@@ -430,13 +482,7 @@ async function detalhe(id) {
     detalhe(os.id);
   };
   $("#pago-sim")?.addEventListener("click", () => marcarPago(true));
-  $("#pago-zap")?.addEventListener("click", () => {
-    const nome = (os.cliente_nome || "").split(" ")[0];
-    abrirWhats(os.cliente_whatsapp,
-      `Olá${nome ? " " + nome : ""}! Aqui é da ${loja.nome}.\nRecebemos seu pagamento de ${reais(total(os))} da OS #${os.numero}. Obrigado!` +
-      (os.status === "pronta" ? "\nSeu aparelho já está pronto para retirar." : "") +
-      `\nComprovante e andamento: ${linkCliente(os)}`);
-  });
+  $("#pago-zap")?.addEventListener("click", () => abrirWhats(os.cliente_whatsapp, mensagemPago(os)));
   $("#pago-nao")?.addEventListener("click", () => confirm("Desfazer o pagamento desta OS?") && marcarPago(false));
   $("#zap").addEventListener("click", () => abrirWhats(os.cliente_whatsapp, $("#msg").textContent));
   $("#copiar").addEventListener("click", async () => {
