@@ -80,3 +80,10 @@ a chave de leitura, a chave de gravação e os endereços dos contadores.
 EUPL-1.2, a mesma da biblioteca usada. O programa é livre para usar e
 distribuir. Se você distribuir uma versão modificada, precisa disponibilizar
 o código-fonte junto.
+
+## Novidades 2.1 – Manutenção / Firmware
+- Teste de bicos, CL1 (limpeza normal), CL2 (limpeza forte) e CL3 (carga de tinta).
+  Wi-Fi: direto pelo IP (porta 9100/LPR). USB: pela fila do Windows (driver instalado).
+- Leitura de firmware, ID do cabeçote e contadores.
+- Atalho para o firmware oficial do modelo no site da Epson e para o painel web da impressora.
+  Atenção: firmware novo pode bloquear o reset. Faça reset e backup antes de atualizar.

@@ -22,6 +22,7 @@ import core
 import diagnostico as dg
 import erros_epson
 import impressao
+import manutencao
 
 try:
     import sv_ttk
@@ -33,7 +34,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "2.0"
+VERSAO = "2.1"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -253,6 +254,8 @@ class App(tk.Tk):
         self.modelos = core.lista_modelos()
         self.ultimo_diag: dict | None = None
         self.barras: dict[str, tuple] = {}
+        self.botoes: list = []
+        self.imp_nome_m = tk.StringVar()
 
         h = LogHandler(self.fila)
         h.setFormatter(logging.Formatter("%(message)s"))
@@ -368,6 +371,7 @@ class App(tk.Tk):
         self.nb = ttk.Notebook(self)
         self.nb.pack(fill="both", expand=True, padx=14, pady=(6, 4))
         self._aba_reset()
+        self._aba_manut()
         self._aba_diag()
         self._aba_tabela()
         self._aba_teste()
@@ -406,6 +410,125 @@ class App(tk.Tk):
                   text="Lembre: o reset só libera a impressora. Troque ou lave a almofada "
                        "(ou instale coletor externo) para a tinta não vazar na placa."
                   ).pack(anchor="w", pady=(14, 0))
+
+    # ------------------------------------------------------------ manutenção
+    def _aba_manut(self):
+        f = ttk.Frame(self.nb, padding=12)
+        self.nb.add(f, text="  Manutenção / Firmware  ")
+        esq = ttk.Frame(f)
+        esq.pack(side="left", fill="both", expand=True)
+
+        lp = ttk.LabelFrame(esq, text=" Limpeza do cabeçote e carga de tinta ", padding=10)
+        lp.pack(fill="x")
+        ttk.Label(lp, wraplength=470, justify="left", foreground=COR["cinza"],
+                  text="Wi-Fi: vai direto pelo IP. USB: escolha a impressora do Windows "
+                       "(precisa do driver instalado).").grid(row=0, column=0, columnspan=3, sticky="w")
+        ttk.Label(lp, text="Impressora (USB):").grid(row=1, column=0, sticky="w", pady=6)
+        self.cb_imp_m = ttk.Combobox(lp, textvariable=self.imp_nome_m, width=30, state="readonly")
+        self.cb_imp_m.grid(row=1, column=1, sticky="w")
+        ttk.Button(lp, text="Atualizar", command=self.carregar_impressoras).grid(row=1, column=2, padx=6)
+        for i, chave in enumerate(("bicos", "cl1", "cl2", "cl3")):
+            r = manutencao.ROTINAS[chave]
+            estilo = "Accent.TButton" if chave == "cl1" else "TButton"
+            b = ttk.Button(lp, text=r["nome"], style=estilo, width=34,
+                           command=lambda c=chave: self.rodar_manut(c))
+            b.grid(row=2 + i, column=0, columnspan=2, sticky="w", pady=3)
+            self.botoes.append(b)
+            ttk.Label(lp, text=r["aviso"], wraplength=300, foreground=COR["cinza"],
+                      font=("Segoe UI", 8), justify="left").grid(row=2 + i, column=2, sticky="w", padx=6)
+
+        fw = ttk.LabelFrame(esq, text=" Firmware ", padding=10)
+        fw.pack(fill="x", pady=10)
+        b = ttk.Button(fw, text="Ler firmware, cabeçote e contadores", command=self.ler_firmware)
+        b.grid(row=0, column=0, sticky="w")
+        self.botoes.append(b)
+        ttk.Button(fw, text="Baixar firmware oficial do modelo",
+                   command=self.abrir_firmware).grid(row=0, column=1, padx=8)
+        ttk.Button(fw, text="Atualizar pelo painel web (Wi-Fi)",
+                   command=self.abrir_painel).grid(row=0, column=2)
+        self.lb_fw = ttk.Label(fw, text="Firmware: —", style="Titulo.TLabel")
+        self.lb_fw.grid(row=1, column=0, columnspan=3, sticky="w", pady=(8, 0))
+
+        ttk.Separator(f, orient="vertical").pack(side="left", fill="y", padx=12)
+        dir_ = ttk.Frame(f)
+        dir_.pack(side="left", fill="both", expand=True)
+        ttk.Label(dir_, text="Leia antes", style="Titulo.TLabel").pack(anchor="w")
+        t = tk.Text(dir_, wrap="word", relief="flat", borderwidth=0, font=("Segoe UI", 10),
+                    padx=6, pady=6, height=20)
+        t.pack(fill="both", expand=True, pady=(6, 0))
+        t.insert("end", "LIMPEZA\n• Faça o teste de bicos primeiro. Falhou? CL1, espere 1 min e "
+                        "teste de novo. Até 2 vezes CL1, depois uma CL2.\n• Não repita sem parar: "
+                        "cada limpeza enche a almofada.\n• Continuou falhando depois da CL2? "
+                        "Deixe descansar 6 h ou mais, ou faça limpeza manual do cabeçote.\n"
+                        "• CL3 (carga de tinta) só depois de troca de peças ou com ar na linha.\n"
+                        "• O efeito exato de cada nível varia por modelo; teste na bancada antes.\n\n")
+        t.insert("end", manutencao.AVISO_FIRMWARE)
+        t.configure(state="disabled")
+        self.contadores_txt = t
+
+    def _destino_manut(self):
+        if self.conexao.get() == core.WIFI:
+            ip = self.ip.get().strip()
+            if not ip:
+                messagebox.showwarning("Falta o IP", "Informe o IP ou use 'Procurar na rede'.")
+                return None
+            return {"ip": ip}
+        imp = self.imp_nome_m.get().strip()
+        if not imp:
+            messagebox.showwarning("Impressora", "No USB escolha a impressora do Windows (clique em Atualizar).")
+            return None
+        return {"impressora_windows": imp}
+
+    def rodar_manut(self, chave):
+        r = manutencao.ROTINAS[chave]
+        dest = self._destino_manut()
+        if not dest:
+            return
+        if chave in ("cl2", "cl3") and not messagebox.askyesno(
+                r["nome"], r["aviso"] + "\n\nContinuar?"):
+            return
+        self.executar(r["nome"], lambda: manutencao.executar(chave, **dest),
+                      lambda via: self.escreve(f"✔ {r['nome']} enviado por {via}. "
+                                               "Aguarde a impressora parar antes de outro comando."))
+
+    def ler_firmware(self):
+        p = self._parametros(precisa_modelo=False)
+        if not p:
+            return
+        con, ip, modelo = p
+
+        def fim(r):
+            self.lb_fw.configure(text=f"Firmware: {r.get('firmware') or 'não informado'}")
+            self.escreve(f"Firmware: {r.get('firmware') or '?'}")
+            if r.get("cabecote"):
+                self.escreve(f"ID do cabeçote (parcial): {r['cabecote']}")
+            for k, v in (r.get("contadores") or {}).items():
+                self.escreve(f"  {k}: {v}")
+            if not r.get("contadores"):
+                self.escreve("  Contadores: modelo fora do banco ou EEPROM bloqueada.")
+        self.executar("Lendo firmware",
+                      lambda: self._com_impressora(manutencao.ler_firmware_e_contadores, modelo, con, ip),
+                      fim)
+
+    def abrir_firmware(self):
+        m = self.modelo.get().strip()
+        if not m:
+            messagebox.showwarning("Modelo", "Escolha ou detecte o modelo primeiro.")
+            return
+        if not messagebox.askokcancel("Firmware", manutencao.AVISO_FIRMWARE):
+            return
+        url = manutencao.abrir_suporte(m)
+        self.escreve(f"Abrindo suporte Epson: {url}  (aba Downloads > Firmware)")
+
+    def abrir_painel(self):
+        ip = self.ip.get().strip()
+        if not ip:
+            messagebox.showwarning("Falta o IP", "Informe o IP da impressora.")
+            return
+        if not messagebox.askokcancel("Firmware", manutencao.AVISO_FIRMWARE):
+            return
+        self.escreve(f"Painel web: {manutencao.abrir_painel_web(ip)}  "
+                     "(Configurações > Atualização de firmware, se o modelo tiver)")
 
     def _aba_diag(self):
         f = ttk.Frame(self.nb, padding=10)
@@ -529,7 +652,8 @@ class App(tk.Tk):
         self.nb.bind("<<NotebookTabChanged>>", self._ao_trocar_aba)
 
     def _ao_trocar_aba(self, _e):
-        if self.nb.index("current") == 3 and not self._impressoras_carregadas:
+        aba = self.nb.tab(self.nb.select(), "text")
+        if ("Teste" in aba or "Manuten" in aba) and not self._impressoras_carregadas:
             self.carregar_impressoras()
 
     def _sel_pagina(self, pid):
@@ -549,9 +673,11 @@ class App(tk.Tk):
         def fim(r):
             lista, padrao = r
             self.cb_imp["values"] = lista
+            self.cb_imp_m["values"] = lista
             esc = impressao.escolher_impressora(lista, padrao, self.modelo.get().strip())
             if esc:
                 self.imp_nome.set(esc)
+                self.imp_nome_m.set(esc)
             self.escreve(f"{len(lista)} impressora(s) instalada(s) no Windows.")
         self.executar("Listando impressoras", impressao.listar_impressoras, fim)
 
