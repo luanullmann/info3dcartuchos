@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794501041";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794502405";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -34,10 +34,21 @@ function telefoneWhats(w) {
   return d;
 }
 
+function montarWhats(whatsapp, texto) {
+  return `https://wa.me/${telefoneWhats(whatsapp)}?text=${encodeURIComponent(texto)}`;
+}
 function abrirWhats(whatsapp, texto) {
-  const n = telefoneWhats(whatsapp);
-  const url = `https://wa.me/${n}?text=${encodeURIComponent(texto)}`;
-  window.open(url, "_blank", "noopener");
+  window.open(montarWhats(whatsapp, texto), "_blank", "noopener");
+}
+// Abre a aba no clique (mantém o "gesto" do usuário) e preenche depois do await,
+// senão o navegador abre o WhatsApp sem a mensagem.
+function abrirZapDepois(whatsapp, gerarTexto) {
+  const win = window.open("", "_blank");
+  return (os2) => {
+    const url = montarWhats(whatsapp, gerarTexto(os2));
+    if (win && !win.closed) win.location.href = url;
+    else window.open(url, "_blank");
+  };
 }
 
 // Nome "RENATA SILVA" -> "Renata"; modelo "EPSON L3150" -> "Epson L3150"
@@ -489,15 +500,21 @@ async function detalhe(id) {
   $("#salvar").addEventListener("click", async () => { await salvar(); toast("Salvo"); detalhe(os.id); });
   $("#enviar-orc")?.addEventListener("click", async () => {
     if (!itens.some((i) => i.desc.trim())) { alert("Coloque pelo menos um serviço ou peça no orçamento."); return; }
+    const enviar = os.cliente_whatsapp ? abrirZapDepois(os.cliente_whatsapp, (o) => mensagem(o)) : null;
     await salvar("aprovacao");
-    if (os.cliente_whatsapp) abrirWhats(os.cliente_whatsapp, mensagem(os));
+    if (enviar) enviar(os);
     else toast("Salvo. Cliente sem WhatsApp: copie o link.");
     detalhe(os.id);
   });
   $$("[data-ir]").forEach((b) => b.addEventListener("click", async () => {
-    await salvar(b.dataset.ir);
-    if (b.dataset.ir === "pronta" && os.cliente_whatsapp && confirm("Avisar o cliente no WhatsApp que está pronta?"))
-      abrirWhats(os.cliente_whatsapp, mensagem(os));
+    const destino = b.dataset.ir;
+    let enviar = null;
+    if (destino === "pronta" && os.cliente_whatsapp &&
+        confirm("Avisar o cliente no WhatsApp que está pronta?")) {
+      enviar = abrirZapDepois(os.cliente_whatsapp, (o) => mensagem(o));
+    }
+    await salvar(destino);
+    if (enviar) enviar(os);
     detalhe(os.id);
   }));
   $("#concluir")?.addEventListener("click", async () => {
