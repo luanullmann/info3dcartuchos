@@ -35,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "2.9"
+VERSAO = "3.0"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -273,8 +273,6 @@ class App(tk.Tk):
         self._rodape()
         self.after(100, self._processa_fila)
         self.after(800, lambda: self.auto_detectar(silencioso=True))
-        self._usb_visto = None
-        self.after(5000, self._vigia_usb)
         self.escreve(f"{NOME} {VERSAO} - {len(self.modelos)} modelos Epson no banco.")
 
     # ------------------------------------------------------------ estilo
@@ -1097,8 +1095,18 @@ class App(tk.Tk):
             self.status.set(f"Encontrada: {r.get('modelo') or 'Epson'} pelo {via}")
             if r.get("modelo") and core.modelo_suportado(r["modelo"]):
                 self.ler()
-            elif not r.get("modelo"):
-                self.escreve("A impressora não informou o modelo: escolha na lista.")
+            elif r.get("modelo"):
+                self.lb_info.configure(text=f"{r['modelo']} encontrada. Clique em 'Ler contadores'.")
+            else:
+                aviso = ("Impressora encontrada pelo USB, mas ela não informou o modelo.\n"
+                         "Escolha o modelo na lista acima e clique em 'Ler contadores'.")
+                self.lb_info.configure(text=aviso)
+                self.escreve(aviso)
+                self.status.set("Escolha o modelo na lista e clique em Ler contadores.")
+                try:
+                    self.cb_modelo.focus_set()
+                except Exception:  # noqa: BLE001
+                    pass
 
         def fim(r):
             if not r:
@@ -1118,26 +1126,6 @@ class App(tk.Tk):
             aplicar(r)
         self.executar("Detectando impressora",
                       lambda: core.auto_detectar(lambda m: self.fila.put(("status", m))), fim)
-
-    def _vigia_usb(self):
-        """A cada 3 s confere se ligaram/desligaram uma Epson no USB e detecta sozinho."""
-        def checa():
-            atuais = tuple(sorted(str(d.path) for d in core.usb_conectadas()))
-            self.fila.put(("fim", lambda: self._usb_mudou(atuais)))
-        if not self.ocupado:
-            threading.Thread(target=checa, daemon=True).start()
-        self.after(3000, self._vigia_usb)
-
-    def _usb_mudou(self, atuais):
-        antes, self._usb_visto = self._usb_visto, atuais
-        if antes is None or atuais == antes or self.ocupado:
-            return
-        if atuais:
-            self.escreve("Nova impressora no USB: detectando...")
-            self.auto_detectar(silencioso=True)
-        elif self.conexao.get() == core.USB:
-            self.escreve("Impressora desligada do USB.")
-            self.status.set("Impressora desligada do USB.")
 
     def _escolher_da_lista(self, lista):
         """Janela para escolher entre várias impressoras achadas na rede."""
