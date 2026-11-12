@@ -170,7 +170,15 @@ async function nova() {
           <label class="campo">Técnico${tecnicos.length
             ? `<select name="tecnico">${tecnicos.map((t) => `<option>${esc(t)}</option>`).join("")}</select>`
             : `<input type="text" name="tecnico">`}</label>
-          <label class="campo">Previsão do orçamento<input type="date" name="previsao"></label>
+          <div class="campo"><label for="previsao">Previsão do orçamento</label>
+            <div class="chips" id="atalhos-data">
+              <button type="button" class="chip" data-dias="0">Hoje</button>
+              <button type="button" class="chip" data-dias="1">Amanhã</button>
+              <button type="button" class="chip" data-dias="2">2 dias</button>
+              <button type="button" class="chip" data-dias="3">3 dias</button>
+            </div>
+            <input type="date" name="previsao" id="previsao">
+            <span class="sub" id="previsao-txt" style="font-weight:400"></span></div>
           <label class="campo">Taxa de diagnóstico<input type="text" name="taxa" placeholder="R$ 0,00" inputmode="decimal"></label>
           <button class="bt prim" type="submit" id="salvar">Abrir OS</button>
         </section>
@@ -189,6 +197,27 @@ async function nova() {
     });
   };
   desenhaFotos();
+
+  const isoLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const mostraPrevisao = () => {
+    const v = f.previsao.value;
+    const hoje = isoLocal(new Date());
+    $$("#atalhos-data .chip").forEach((b) => {
+      const d = new Date(); d.setDate(d.getDate() + Number(b.dataset.dias));
+      b.classList.toggle("on", isoLocal(d) === v);
+    });
+    $("#previsao-txt").textContent = v
+      ? new Date(v + "T12:00").toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" }) + (v === hoje ? " (hoje)" : "")
+      : "";
+  };
+  $$("#atalhos-data .chip").forEach((b) => b.addEventListener("click", () => {
+    const d = new Date(); d.setDate(d.getDate() + Number(b.dataset.dias));
+    f.previsao.value = isoLocal(d);
+    mostraPrevisao();
+  }));
+  f.previsao.addEventListener("change", mostraPrevisao);
+  f.previsao.value = isoLocal(new Date());
+  mostraPrevisao();
 
   f.whatsapp.addEventListener("blur", async () => {
     const c = await banco.buscarCliente(f.whatsapp.value).catch(() => null);
