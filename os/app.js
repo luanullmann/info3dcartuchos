@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794500180";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794500872";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -189,6 +189,9 @@ async function painel() {
 // ------------------------------------------------------------ nova OS
 async function nova() {
   const tecnicos = (loja.tecnicos || "").split(",").map((s) => s.trim()).filter(Boolean);
+  let tecnicoPadrao = "";
+  try { tecnicoPadrao = localStorage.getItem("os3d_tecnico") || ""; } catch { /* ignore */ }
+  if (!tecnicoPadrao) tecnicoPadrao = tecnicos[0] || "";
   casca("#/nova", `
     <div class="topo"><div><a href="#/" style="text-decoration:none">← Painel</a><h1>Nova OS</h1></div></div>
     <form id="f" class="colunas" autocomplete="off">
@@ -223,8 +226,8 @@ async function nova() {
         <section class="card" style="display:flex;flex-direction:column;gap:14px">
           <h2 style="margin:0">Atendimento</h2>
           <label class="campo">Técnico${tecnicos.length
-            ? `<select name="tecnico">${tecnicos.map((t) => `<option>${esc(t)}</option>`).join("")}</select>`
-            : `<input type="text" name="tecnico">`}</label>
+            ? `<select name="tecnico">${tecnicos.map((t) => `<option ${t === tecnicoPadrao ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`
+            : `<input type="text" name="tecnico" value="${esc(tecnicoPadrao)}">`}</label>
           <div class="campo"><label for="previsao">Previsão do orçamento</label>
             <div class="chips" id="atalhos-data">
               <button type="button" class="chip" data-dias="0">Hoje</button>
@@ -289,6 +292,7 @@ async function nova() {
     bt.disabled = true;
     bt.textContent = "Salvando…";
     try {
+      try { if (f.tecnico.value.trim()) localStorage.setItem("os3d_tecnico", f.tecnico.value.trim()); } catch { /* ignore */ }
       const cliente_id = await banco.salvarCliente({ nome: f.nome.value.trim(), whatsapp: f.whatsapp.value });
       let os = await banco.criarOS({
         cliente_id,
