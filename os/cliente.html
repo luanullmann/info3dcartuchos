@@ -7,7 +7,7 @@
 <title>Acompanhe seu conserto</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css?v=1794453925">
+<link rel="stylesheet" href="estilo.css?v=1794454460">
 <style>
 .pg{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
 header{background:var(--marinho);color:#fff;padding:26px 20px 22px}
@@ -21,14 +21,14 @@ header small{color:#C9D1E3;font-size:13px}header h1{font-size:22px;margin:6px 0 
 .qr{display:flex;justify-content:center;margin:10px 0}.qr img{width:220px;height:220px;image-rendering:pixelated}
 .copia{font-family:Consolas,monospace;font-size:11px;word-break:break-all;background:#F4F5F8;border-radius:8px;padding:10px;max-height:72px;overflow:auto}
 </style>
-<script src="config.js?v=1794453925"></script>
-<script src="vendor/qrcode.js?v=1794453925"></script>
+<script src="config.js?v=1794454460"></script>
+<script src="vendor/qrcode.js?v=1794454460"></script>
 </head>
 <body>
 <div class="pg" id="raiz"><p class="vazio">Carregando…</p></div>
 <script type="module">
-import { criarBanco, STATUS } from "./dados.js?v=1794453925";
-import { pixCopiaECola } from "./pix.js?v=1794453925";
+import { criarBanco, STATUS } from "./dados.js?v=1794454460";
+import { pixCopiaECola } from "./pix.js?v=1794454460";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const num = (s) => Number(String(s ?? "").replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
 const reais = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -38,9 +38,42 @@ const banco = await criarBanco();
 const PASSOS = ["orcamento", "aprovacao", "conserto", "pronta", "entregue"];
 const NOMES = ["Entrada", "Orçamento", "Conserto", "Pronta", "Entregue"];
 
+let pixGerado = null;
+let vigiaPix = null;
+
+function qrImg(codigo) {
+  try { const q = qrcode(0, "M"); q.addData(codigo); q.make(); return q.createDataURL(6, 2); } catch { return ""; }
+}
+
+function blocoPixAutomatico(os, tot) {
+  if (!pixGerado) return `<section class="card">
+    <h2 style="margin:0 0 4px">Pagar com Pix · ${reais(tot)}</h2>
+    <div class="sub" style="margin-bottom:10px">Pode pagar agora ou na retirada. A confirmação chega aqui na hora.</div>
+    <form id="pix-form" style="display:flex;flex-direction:column;gap:10px">
+      <label class="campo">Seu CPF (pedido pelo PagBank)<input type="text" name="cpf" inputmode="numeric" autocomplete="off" required placeholder="000.000.000-00"></label>
+      <button class="bt prim" type="submit" id="pix-gerar">Gerar Pix</button>
+      <div class="sub" id="pix-erro" role="alert"></div>
+    </form>
+  </section>`;
+  const img = qrImg(pixGerado.texto);
+  return `<section class="card">
+    <h2 style="margin:0 0 4px">Pagar com Pix · ${reais(tot)}</h2>
+    <div class="sub">Abra o app do seu banco em Pix > Copia e cola${img ? " ou leia o QR Code" : ""}.</div>
+    ${img ? `<div class="qr"><img src="${img}" alt="QR Code do Pix de ${reais(tot)}"></div>` : ""}
+    <div class="copia" id="pix-cod">${esc(pixGerado.texto)}</div>
+    <button class="bt prim" type="button" id="pix-copiar" style="margin-top:10px;width:100%">Copiar código Pix</button>
+    <div class="sub" style="margin-top:10px;text-align:center">Aguardando o pagamento… esta tela atualiza sozinha.</div>
+  </section>`;
+}
+
 function blocoPix(os, tot) {
-  if (!os.pix_chave || !(tot > 0) || !["conserto", "pronta", "entregue"].includes(os.status)) return "";
-  if (os.pago) return `<section class="card"><span class="tag verde">Pagamento confirmado</span><p style="margin:8px 0 0">Obrigado!</p></section>`;
+  if (!(tot > 0) || !["conserto", "pronta", "entregue"].includes(os.status)) return "";
+  if (os.pago) return `<section class="card" style="text-align:center;border-color:#9CD3AE;background:#F1FAF4">
+      <div style="font-size:40px;line-height:1;color:var(--verde)" aria-hidden="true">✓</div>
+      <h2 style="margin:8px 0 4px;color:var(--verde)">Pagamento confirmado!</h2>
+      <p style="margin:0">Recebemos ${reais(tot)}. Obrigado!</p></section>`;
+  if (banco.pixAutomatico) return blocoPixAutomatico(os, tot);
+  if (!os.pix_chave) return "";
   if (os.pagamento_informado) return `<section class="card"><span class="tag laranja">Pagamento informado</span><p style="margin:8px 0 0;line-height:1.5">A loja vai conferir e confirmar. Obrigado!</p></section>`;
   let codigo;
   try {
@@ -109,6 +142,27 @@ async function mostra() {
     try { await navigator.clipboard.writeText(cod); document.getElementById("pix-copiar").textContent = "Copiado! Cole no app do banco"; }
     catch { prompt("Copie o código Pix:", cod); }
   });
+  document.getElementById("pix-form")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const bt = document.getElementById("pix-gerar");
+    bt.disabled = true; bt.textContent = "Gerando…";
+    try {
+      const r = await banco.gerarPix(token, os.cliente, e.target.cpf.value);
+      if (!r.pago) pixGerado = r;
+      mostra();
+    } catch (err) {
+      document.getElementById("pix-erro").textContent = err.message;
+      bt.disabled = false; bt.textContent = "Gerar Pix";
+    }
+  });
+  if (pixGerado && !os.pago && !vigiaPix) {
+    vigiaPix = setInterval(async () => {
+      try {
+        const n = await banco.osPublica(token);
+        if (n && n.pago) { clearInterval(vigiaPix); vigiaPix = null; pixGerado = null; mostra(); }
+      } catch { /* tenta de novo */ }
+    }, 4000);
+  }
   document.getElementById("pix-paguei")?.addEventListener("click", async () => {
     if (!confirm("Confirma que já fez o Pix?")) return;
     try { await banco.informarPagamento(token); } catch (e) { alert("Não deu certo: " + e.message); }

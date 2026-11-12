@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794453925";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794454460";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -335,7 +335,8 @@ async function detalhe(id) {
               ? `<span class="tag laranja">Cliente avisou que pagou por Pix</span><div class="sub" style="margin-top:6px">Confira no app do banco antes de marcar como pago.</div>`
               : `<span class="tag cinza">Pendente</span>`}</div>
           <div class="acoes">${os.pago
-            ? `<button class="bt peq" type="button" id="pago-nao">Desfazer pagamento</button>`
+            ? `${os.cliente_whatsapp ? `<button class="bt peq zap" type="button" id="pago-zap">Avisar cliente no WhatsApp</button>` : ""}
+               <button class="bt peq" type="button" id="pago-nao">Desfazer pagamento</button>`
             : `<button class="bt peq prim" type="button" id="pago-sim">Marcar como pago</button>`}</div>
         </section>` : ""}
         <section class="card">
@@ -428,6 +429,13 @@ async function detalhe(id) {
     detalhe(os.id);
   };
   $("#pago-sim")?.addEventListener("click", () => marcarPago(true));
+  $("#pago-zap")?.addEventListener("click", () => {
+    const nome = (os.cliente_nome || "").split(" ")[0];
+    abrirWhats(os.cliente_whatsapp,
+      `Olá${nome ? " " + nome : ""}! Aqui é da ${loja.nome}.\nRecebemos seu pagamento de ${reais(total(os))} da OS #${os.numero}. Obrigado!` +
+      (os.status === "pronta" ? "\nSeu aparelho já está pronto para retirar." : "") +
+      `\nComprovante e andamento: ${linkCliente(os)}`);
+  });
   $("#pago-nao")?.addEventListener("click", () => confirm("Desfazer o pagamento desta OS?") && marcarPago(false));
   $("#zap").addEventListener("click", () => abrirWhats(os.cliente_whatsapp, $("#msg").textContent));
   $("#copiar").addEventListener("click", async () => {

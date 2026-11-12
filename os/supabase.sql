@@ -65,6 +65,13 @@ create table if not exists ordens (
 );
 alter table ordens add column if not exists pago boolean not null default false;
 alter table ordens add column if not exists pagamento_informado boolean not null default false;
+alter table ordens add column if not exists pago_em timestamptz;
+-- Pix automático (PagBank): preenchidos só pelas funções do servidor
+alter table ordens add column if not exists pix_pedido_id text;
+alter table ordens add column if not exists pix_texto text;
+alter table ordens add column if not exists pix_imagem text;
+alter table ordens add column if not exists pix_expira timestamptz;
+alter table ordens add column if not exists pix_valor int;
 create index if not exists ordens_loja_numero on ordens (loja_id, numero desc);
 
 -- número sequencial por loja

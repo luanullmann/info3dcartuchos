@@ -6,4 +6,6 @@
 window.OS3D_CONFIG = {
   supabaseUrl: "",
   supabaseKey: "",
+  // true depois de publicar as funções pix-criar e pix-aviso e cadastrar o token do PagBank
+  pagbank: false,
 };

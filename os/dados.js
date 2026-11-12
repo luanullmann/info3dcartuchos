@@ -296,6 +296,17 @@ class BancoNuvem {
   async informarPagamento(token) {
     return this.#ok(await this.sb.rpc("os_informar_pagamento", { t: token }));
   }
+  get pixAutomatico() { return !!(window.OS3D_CONFIG || {}).pagbank; }
+  async gerarPix(token, nome, cpf) {
+    const { data, error } = await this.sb.functions.invoke("pix-criar", { body: { t: token, nome, cpf } });
+    if (error) {
+      let msg = error.message;
+      try { msg = (await error.context.json()).erro || msg; } catch { /* sem corpo */ }
+      throw new Error(msg);
+    }
+    if (data?.erro) throw new Error(data.erro);
+    return data;
+  }
 }
 
 export async function criarBanco() {
