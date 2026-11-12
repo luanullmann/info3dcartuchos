@@ -118,6 +118,12 @@ drop policy if exists ordens_loja on ordens;
 create policy ordens_loja on ordens for all to authenticated
   using (loja_id = minha_loja()) with check (loja_id = minha_loja());
 
+-- acesso pela API (vale mesmo se "Automatically expose new tables" estiver desmarcado);
+-- quem decide o que cada um vê são as regras (policies) acima
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on lojas, clientes, ordens to authenticated;
+grant select on membros to authenticated;
+
 -- página do cliente (link do WhatsApp): só lê pelo token, sem login
 create or replace function os_publica(t text) returns json
 language sql stable security definer set search_path = public as $$
