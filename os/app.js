@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794502405";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794513254";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -67,7 +67,7 @@ function cabecalhoLoja() {
 }
 function rodapeLoja(tecnico) {
   const l = [];
-  if (tecnico) l.push(`👨‍🔧 Atendimento: ${tecnico}`);
+  if (tecnico) l.push(`🔧 Atendimento: ${tecnico}`);
   if (loja.endereco) l.push(`📍 ${loja.endereco}`);
   if (loja.whatsapp) l.push(`📞 WhatsApp ${loja.whatsapp}`);
   l.push("_Qualquer dúvida, é só responder esta mensagem._");
@@ -113,7 +113,12 @@ function mensagem(os) {
         (loja.pix_chave ? "• Pix, pelo link abaixo\n" : "") +
         "• Cartão de débito ou crédito, direto na loja, na retirada" +
         (loja.pix_chave ? "" : "\n• Pix, direto na loja"));
-      partes.push(`*Aprovar ou recusar o orçamento:*\n${link}`);
+      partes.push(
+        "Se estiver tudo certo com os valores acima e você quiser seguir com o serviço, "
+        + "é só tocar no link e *aprovar o orçamento*. Assim que aprovar, já pode pagar por "
+        + "Pix no mesmo link, ou pessoalmente na loja na hora de retirar. "
+        + "Se preferir não seguir, pode recusar pelo mesmo link, sem compromisso.");
+      partes.push(`*Aprovar, recusar ou pagar o orçamento:*\n${link}`);
       break;
     }
     case "pronta":
