@@ -35,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "3.0"
+VERSAO = "3.1"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",

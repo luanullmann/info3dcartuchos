@@ -276,14 +276,15 @@ def auto_detectar(progresso: Optional[Callable[[str], None]] = None) -> Optional
             progresso(m)
 
     prog("Procurando impressora no USB...")
-    if usb_conectadas():
-        modelo = None
-        try:
-            modelo = detectar_modelo(USB)
-        except Exception as exc:  # noqa: BLE001
-            log.debug("modelo pelo USB: %s", exc)
+    # Vai direto perguntar o modelo pelo USB (igual ao Detectar antigo). NÃO
+    # enumeramos antes: a enumeração do USB segura a porta e deixa a impressora
+    # "ocupada", quebrando a leitura logo em seguida.
+    try:
+        modelo = detectar_modelo(USB)  # levanta erro se não houver impressora no USB
         return {"conexao": USB, "modelo": modelo, "ip": None,
                 "nome": f"Epson {modelo or ''} no USB".replace("  ", " "), "outras": []}
+    except Exception as exc:  # noqa: BLE001
+        log.debug("nada no USB (ou falha ao abrir): %s", exc)
 
     prog("Nenhuma no USB. Procurando na rede (até ~30 s)...")
     try:
