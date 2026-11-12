@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Printer's 3D Utility</title>
+<meta name="description" content="Programa grátis para Windows: reset de almofadas Epson pelo Wi-Fi ou USB, diagnóstico de defeitos e tabela de erros em português. Da assistência Info 3D Cartuchos Express.">
+<link rel="icon" href="img/logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Papel de impressão + as quatro tintas CMYK do logo. Layout: página de teste de impressora, faixas e marcas de registro. */
+    --papel: #fbfaf6;
+    --tinta: #15161a;
+    --ciano: #0aa0e2;
+    --magenta: #e4087c;
+    --amarelo: #ffcf0a;
+    --azul: #1f3fa6;
+    --cinza: #5d6069;
+    --linha: #e3e1da;
+    --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+    --corpo: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { animation: none !important; transition: none !important; } }
+  body { margin: 0; background: var(--papel); color: var(--tinta); font: 400 17px/1.6 var(--corpo); }
+  img { max-width: 100%; height: auto; display: block; }
+  a { color: var(--azul); }
+  a:focus-visible, button:focus-visible { outline: 3px solid var(--ciano); outline-offset: 3px; border-radius: 6px; }
+  .wrap { width: min(1120px, 100% - 40px); margin-inline: auto; }
+  h1, h2, h3 { font-family: var(--display); text-wrap: balance; line-height: 1.02; margin: 0; }
+  h2 { font-size: clamp(30px, 4.4vw, 48px); font-weight: 800; font-stretch: 85%; letter-spacing: -0.01em; }
+  h3 { font-size: 21px; font-weight: 700; font-stretch: 90%; }
+  p { margin: 0; }
+  .mono { font-family: var(--mono); }
+
+  /* Faixa CMYK (como a barra de cores de uma página de teste) */
+  .cmyk { display: grid; grid-template-columns: repeat(4, 1fr); height: 8px; }
+  .cmyk span:nth-child(1) { background: var(--ciano); }
+  .cmyk span:nth-child(2) { background: var(--magenta); }
+  .cmyk span:nth-child(3) { background: var(--amarelo); }
+  .cmyk span:nth-child(4) { background: var(--tinta); }
+
+  /* Topo */
+  header.topo { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--papel) 92%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--linha); }
+  .topo .wrap { display: flex; align-items: center; gap: 14px; padding: 10px 0; }
+  .topo img { width: 44px; height: 44px; border-radius: 50%; }
+  .marca { font-family: var(--display); font-weight: 800; font-stretch: 90%; font-size: 19px; line-height: 1.1; }
+  .marca small { display: block; font: 500 12px var(--corpo); color: var(--cinza); letter-spacing: .02em; }
+  .topo nav { margin-left: auto; display: flex; gap: 22px; align-items: center; }
+  .topo nav a { color: var(--tinta); text-decoration: none; font-weight: 500; font-size: 15px; }
+  .topo nav a:hover { color: var(--magenta); }
+  @media (max-width: 760px) { .topo nav a:not(.bt) { display: none; } }
+
+  .bt { display: inline-flex; align-items: center; gap: 10px; padding: 13px 22px; border-radius: 999px; font-weight: 600; text-decoration: none; border: 2px solid var(--tinta); transition: transform .15s, box-shadow .15s; }
+  .bt:hover { transform: translateY(-2px); box-shadow: 4px 4px 0 var(--tinta); }
+  .bt-escuro { background: var(--tinta); color: #fff !important; }
+  .bt-claro { background: transparent; color: var(--tinta) !important; }
+  .bt-wpp { background: #1fa855; border-color: #1fa855; color: #fff !important; padding: 9px 16px; font-size: 14px; }
+  .bt-wpp:hover { box-shadow: 4px 4px 0 #0f6b33; }
+
+  /* Hero */
+  .hero { padding: 64px 0 56px; position: relative; overflow: hidden; }
+  .hero .wrap { display: grid; grid-template-columns: 1.05fr 1fr; gap: 48px; align-items: center; }
+  @media (max-width: 900px) { .hero .wrap { grid-template-columns: 1fr; } }
+  .selo { display: inline-flex; gap: 8px; align-items: center; font: 600 13px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--cinza); margin-bottom: 18px; }
+  .selo i { width: 10px; height: 10px; border-radius: 50%; background: #1fa855; box-shadow: 0 0 0 4px #1fa85522; }
+  .hero h1 { font-size: clamp(44px, 7.4vw, 92px); font-weight: 900; font-stretch: 75%; letter-spacing: -0.015em; line-height: .92; }
+  .hero h1 .c { color: var(--ciano); }
+  .hero h1 .m { color: var(--magenta); }
+  .hero h1 .u { display: inline-block; background: linear-gradient(transparent 62%, var(--amarelo) 62% 92%, transparent 92%); padding: 0 .06em; }
+  .hero .sub { font-size: 19px; color: var(--cinza); max-width: 34em; margin: 22px 0 30px; }
+  .hero .acoes { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .nota-dl { font: 400 13px var(--mono); color: var(--cinza); margin-top: 14px; }
+
+  /* Medidor da almofada: o detalhe que só este assunto tem */
+  .tela { position: relative; }
+  .tela img { border-radius: 12px; border: 2px solid var(--tinta); box-shadow: 10px 10px 0 var(--tinta); }
+  .medidor { position: absolute; left: -26px; bottom: -30px; background: #fff; border: 2px solid var(--tinta); border-radius: 12px; padding: 14px 16px; width: 270px; box-shadow: 6px 6px 0 var(--magenta); }
+  .medidor b { font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .05em; color: var(--cinza); }
+  .barra { height: 12px; border-radius: 99px; background: var(--linha); overflow: hidden; margin: 8px 0 6px; }
+  .barra span { display: block; height: 100%; width: 100%; background: repeating-linear-gradient(-45deg, var(--magenta) 0 8px, #c3066a 8px 16px); animation: esvazia 4.5s ease-in-out 1s infinite alternate; transform-origin: left; }
+  @keyframes esvazia { 0%, 25% { transform: scaleX(1); } 75%, 100% { transform: scaleX(0.02); background: var(--ciano); } }
+  .medidor .num { display: flex; justify-content: space-between; font: 600 14px var(--mono); }
+  .medidor .num em { font-style: normal; color: var(--magenta); }
+  @media (max-width: 900px) { .medidor { left: 12px; bottom: -24px; } .tela { margin-bottom: 30px; } }
+
+  /* Escada de bicos (padrão de teste de bicos) como divisor */
+  .bicos { display: flex; gap: 3px; height: 34px; align-items: end; overflow: hidden; opacity: .9; }
+  .bicos span { flex: 1; min-width: 3px; }
+
+  section { padding: 80px 0; }
+  .cab-sec { display: grid; grid-template-columns: 220px 1fr; gap: 28px; margin-bottom: 40px; align-items: end; }
+  .cab-sec .rot { font: 600 13px var(--mono); text-transform: uppercase; letter-spacing: .08em; color: var(--magenta); border-top: 3px solid var(--tinta); padding-top: 10px; }
+  .cab-sec p { color: var(--cinza); max-width: 40em; margin-top: 12px; }
+  @media (max-width: 760px) { .cab-sec { grid-template-columns: 1fr; gap: 10px; } }
+
+  /* Recursos */
+  .recursos { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; background: var(--tinta); border: 2px solid var(--tinta); border-radius: 14px; overflow: hidden; }
+  @media (max-width: 760px) { .recursos { grid-template-columns: 1fr; } }
+  .rec { background: var(--papel); padding: 28px; display: grid; gap: 10px; align-content: start; }
+  .rec .tag { width: 38px; height: 8px; border-radius: 4px; }
+  .rec p { color: var(--cinza); }
+
+  /* Duas telas */
+  .telas { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  @media (max-width: 760px) { .telas { grid-template-columns: 1fr; } }
+  .telas figure { margin: 0; }
+  .telas img { border: 2px solid var(--tinta); border-radius: 10px; }
+  .telas figcaption { font-size: 15px; color: var(--cinza); margin-top: 10px; }
+
+  /* Tabela de modelos */
+  .tabela { overflow-x: auto; border: 2px solid var(--tinta); border-radius: 12px; background: #fff; }
+  table { width: 100%; border-collapse: collapse; min-width: 640px; font-size: 16px; }
+  th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--linha); }
+  th { font: 600 13px var(--mono); text-transform: uppercase; letter-spacing: .05em; background: var(--tinta); color: #fff; }
+  td:first-child { font-family: var(--mono); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  .ok, .nao, .med { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; padding: 3px 10px; border-radius: 99px; }
+  .ok { background: #e3f6ea; color: #157140; }
+  .nao { background: #fde6f1; color: #a5005a; }
+  .med { background: #fff5cc; color: #7a5a00; }
+  .rodape-tab { font-size: 14px; color: var(--cinza); margin-top: 12px; }
+
+  /* Códigos de erro */
+  .codigos { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .cod { border: 2px solid var(--tinta); border-radius: 10px; padding: 16px; background: #fff; }
+  .cod .k { font: 600 22px var(--mono); }
+  .cod p { font-size: 15px; color: var(--cinza); margin-top: 4px; }
+
+  /* Passos */
+  .passos { counter-reset: p; display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+  @media (max-width: 900px) { .passos { grid-template-columns: 1fr; } }
+  .passo { counter-increment: p; border-top: 3px solid var(--tinta); padding-top: 16px; display: grid; gap: 8px; align-content: start; }
+  .passo::before { content: counter(p, decimal-leading-zero); font: 600 14px var(--mono); color: var(--magenta); }
+  .passo p { color: var(--cinza); font-size: 16px; }
+  .passo code { font-family: var(--mono); background: #ecebe5; padding: 1px 6px; border-radius: 4px; font-size: 14px; color: var(--tinta); }
+
+  /* Avisos */
+  .avisos { background: var(--tinta); color: #f1f0ea; border-radius: 16px; padding: 40px; display: grid; grid-template-columns: 1fr 1.4fr; gap: 36px; }
+  .avisos h2 { color: var(--amarelo); }
+  .avisos ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 16px; }
+  .avisos li { padding-left: 22px; position: relative; color: #d4d3cc; }
+  .avisos li::before { content: ""; position: absolute; left: 0; top: .55em; width: 10px; height: 10px; background: var(--magenta); }
+  .avisos li b { color: #fff; }
+  @media (max-width: 860px) { .avisos { grid-template-columns: 1fr; padding: 28px; } }
+
+  /* Contato */
+  .contato { display: grid; grid-template-columns: auto 1fr auto; gap: 28px; align-items: center; border: 2px solid var(--tinta); border-radius: 16px; padding: 28px; background: #fff; box-shadow: 8px 8px 0 var(--amarelo); }
+  .contato img { width: 120px; height: 120px; border-radius: 50%; }
+  .contato .tel { font: 600 24px var(--mono); margin-top: 6px; }
+  .contato p { color: var(--cinza); }
+  @media (max-width: 760px) { .contato { grid-template-columns: 1fr; text-align: left; } }
+
+
+  /* Drivers */
+  .drv-busca { display: flex; gap: 12px; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+  .drv-busca input { font: 500 17px var(--mono); padding: 12px 16px; border: 2px solid var(--tinta); border-radius: 10px; background: #fff; width: min(360px, 100%); }
+  .drv-busca input:focus-visible { outline: 3px solid var(--ciano); outline-offset: 2px; }
+  .drivers { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
+  .drv { display: grid; gap: 6px; align-content: start; border: 2px solid var(--tinta); border-radius: 10px; padding: 14px; background: #fff; color: var(--tinta); }
+  .drv-bt { display: inline-block; margin-top: 4px; padding: 8px 10px; border-radius: 8px; background: var(--tinta); color: #fff !important; font-size: 14px; font-weight: 600; text-decoration: none; text-align: center; }
+  .drv-bt:hover { background: var(--azul); }
+  .drv-lk { font-size: 13px; font-weight: 600; text-decoration: none; }
+  .drv b { font: 600 20px var(--mono); }
+  .drv span { font-size: 13px; color: var(--cinza); }
+  .drv-passos { margin-top: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; font-size: 15px; color: var(--cinza); }
+  .drv-passos div { border-left: 4px solid var(--amarelo); padding-left: 12px; }
+  .drv-passos b { color: var(--tinta); }
+
+  footer { padding: 40px 0 60px; font-size: 14px; color: var(--cinza); }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 10px 30px; justify-content: space-between; }
+</style>
+</head>
+<body>
+
+<div class="cmyk" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+<header class="topo">
+  <div class="wrap">
+    <img src="img/logo.jpg" alt="Logo Info 3D Cartuchos Express">
+    <div class="marca">Printer's 3D Utility<small>por Info 3D Cartuchos Express</small></div>
+    <nav>
+      <a href="#recursos">Recursos</a>
+      <a href="#modelos">Modelos</a>
+      <a href="#instalar">Instalar</a>
+      <a href="#drivers">Drivers</a>
+      <a class="bt bt-wpp" href="https://wa.me/5521986600466">WhatsApp</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <div class="selo"><i></i>Grátis • Windows 10 e 11 • Em português</div>
+      <h1>Almofada cheia? <span class="c">Reset</span> pelo <span class="u">Wi-Fi</span>, <span class="m">de graça.</span></h1>
+      <p class="sub">Lê e zera o contador de tinta residual das impressoras Epson pela rede ou pelo cabo USB, faz o diagnóstico do defeito e mostra o que trocar. Feito na bancada de uma assistência técnica.</p>
+      <div class="acoes">
+        <a class="bt bt-escuro" href="download/Printers3DUtility.zip">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 20h16"/></svg>
+          Baixar para Windows
+        </a>
+        <a class="bt bt-claro" href="#instalar">Como instalar</a>
+      </div>
+      <p class="nota-dl">Printer's 3D Utility 2.0 • .exe sem instalação • 117 modelos Epson</p>
+    </div>
+    <div class="tela">
+      <img src="img/tela-reset.png" alt="Tela do programa mostrando a almofada principal em 157% e o botão de reset permanente" width="1000" height="760">
+      <div class="medidor" aria-hidden="true">
+        <b>Almofada principal • L3150</b>
+        <div class="barra"><span></span></div>
+        <div class="num"><span>0%</span><em>100% cheia</em></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><div class="bicos" id="bicos" aria-hidden="true"></div></div>
+
+<section id="recursos">
+  <div class="wrap">
+    <div class="cab-sec">
+      <div class="rot">O que ele faz</div>
+      <div><h2>Tudo o que a bancada precisa, numa janela só.</h2></div>
+    </div>
+    <div class="recursos">
+      <div class="rec"><div class="tag" style="background:var(--ciano)"></div><h3>Reset pelo Wi-Fi ou USB</h3><p>Reset permanente das almofadas, com backup da EEPROM antes de gravar e conferência de cada byte. Placa com USB queimada? Use o Wi-Fi ou o Wi-Fi Direct da impressora.</p></div>
+      <div class="rec"><div class="tag" style="background:var(--magenta)"></div><h3>Reset temporário</h3><p>Libera a impressão até desligar, inclusive nos modelos em que a Epson bloqueou a gravação pela rede, como a L3250.</p></div>
+      <div class="rec"><div class="tag" style="background:var(--amarelo)"></div><h3>Diagnóstico com foto</h3><p>Lê o status e o histórico de erros, explica em português o que verificar e mostra a foto da peça. Cada técnico pode registrar a causa e a solução que funcionou.</p></div>
+      <div class="rec"><div class="tag" style="background:var(--tinta)"></div><h3>Tabela de erros Epson</h3><p>Códigos de tela (E-01, E-11, W-01…) e padrões de luzes dos modelos sem visor, resumidos dos manuais da Epson, com busca.</p></div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap telas">
+    <figure><img src="img/tela-reset.png" alt="Aba de reset com barras das almofadas" loading="lazy" width="1000" height="760"><figcaption>Contadores das almofadas e reset em um clique.</figcaption></figure>
+    <figure><img src="img/tela-diagnostico.png" alt="Aba de diagnóstico listando papel atolado e almofada cheia" loading="lazy" width="1000" height="760"><figcaption>Diagnóstico: cada defeito com o que fazer e espaço para foto.</figcaption></figure>
+  </div>
+</section>
+
+<section id="modelos" style="padding-top:20px">
+  <div class="wrap">
+    <div class="cab-sec">
+      <div class="rot">Compatibilidade</div>
+      <div><h2>Modelos mais comuns.</h2><p>São 117 modelos Epson no banco: linha L (L355, L365, L395, L3150, L4160…), EcoTank ET-2xxx e ET-4xxx e várias XP.</p></div>
+    </div>
+    <div class="tabela">
+      <table>
+        <thead><tr><th>Modelo</th><th>Wi-Fi permanente</th><th>Wi-Fi temporário</th><th>USB permanente</th></tr></thead>
+        <tbody>
+          <tr><td>L3150 / L3151 / L3160</td><td><span class="ok">✔ Sim*</span></td><td><span class="ok">✔ Sim</span></td><td><span class="ok">✔ Sim</span></td></tr>
+          <tr><td>L4150 / L4160</td><td><span class="ok">✔ Sim*</span></td><td><span class="ok">✔ Sim</span></td><td><span class="ok">✔ Sim</span></td></tr>
+          <tr><td>L3250 / L3251</td><td><span class="nao">✖ Bloqueado</span></td><td><span class="ok">✔ Sim</span></td><td><span class="med">Em breve</span></td></tr>
+          <tr><td>L4260 / L1250</td><td><span class="nao">✖ Provável bloqueio</span></td><td><span class="ok">✔ Sim</span></td><td><span class="med">Em breve</span></td></tr>
+          <tr><td>L3210 / L3110</td><td>Sem Wi-Fi</td><td>—</td><td><span class="med">Em breve</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="rodape-tab">* Desde que o firmware não tenha sido atualizado para uma versão que bloqueia o acesso pela rede.</p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap">
+    <div class="cab-sec">
+      <div class="rot">Tabela de erros</div>
+      <div><h2>O código na tela, traduzido.</h2></div>
+    </div>
+    <div class="codigos">
+      <div class="cod"><div class="k">E-01</div><p>Erro geral: papel ou trava de transporte dentro, carro travado.</p></div>
+      <div class="cod"><div class="k">E-11</div><p>Almofada cheia. Trocar ou lavar e fazer o reset permanente.</p></div>
+      <div class="cod"><div class="k">W-01</div><p>Papel atolado. Sem papel visível: sensor PE e roletes.</p></div>
+      <div class="cod"><div class="k">W-11</div><p>Almofada quase cheia. Ainda imprime apertando OK.</p></div>
+      <div class="cod"><div class="k" style="font-size:17px">Power + Papel</div><p>Piscando juntos nos modelos sem tela: almofada principal.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="instalar" style="padding-top:20px">
+  <div class="wrap">
+    <div class="cab-sec">
+      <div class="rot">Instalar</div>
+      <div><h2>Três passos, sem instalador.</h2><p>O programa não tem assinatura digital paga, então o Windows avisa na primeira vez. É normal.</p></div>
+    </div>
+    <div class="passos">
+      <div class="passo"><h3>Baixe e extraia</h3><p>Baixe o <code>Printers3DUtility.zip</code>, clique com o botão direito e escolha <b>Extrair tudo</b>. Mantenha os arquivos <code>.json</code> na mesma pasta do <code>.exe</code>.</p></div>
+      <div class="passo"><h3>Libere no Windows</h3><p>Se aparecer "O Windows protegeu o computador", clique em <b>Mais informações</b> e depois em <b>Executar assim mesmo</b>. Se o <b>Controle Inteligente de Aplicativos</b> bloquear, ele precisa ser desativado em Segurança do Windows.</p></div>
+      <div class="passo"><h3>Conecte e leia</h3><p>Escolha Wi-Fi (ou Wi-Fi Direct, IP <code>192.168.223.1</code>) ou cabo USB, clique em <b>Detectar</b> e em <b>Ler contadores</b>.</p></div>
+    </div>
+  </div>
+</section>
+
+
+<section id="drivers" style="padding-top:20px">
+  <div class="wrap">
+    <div class="cab-sec">
+      <div class="rot">Drivers Epson</div>
+      <div><h2>Driver oficial de cada modelo.</h2><p>"Baixar instalador" puxa o pacote completo (impressão e scanner) direto do servidor da Epson. Na página do modelo ficam as versões para Mac, firmware e manuais.</p></div>
+    </div>
+    <div class="drv-busca">
+      <label for="busca-drv" class="mono" style="font-weight:600">Modelo:</label>
+      <input id="busca-drv" type="search" placeholder="ex.: L3150" autocomplete="off">
+    </div>
+    <div class="drivers" id="lista-drv"></div>
+    <div class="drv-passos">
+      <div><b>1. Clique em "Baixar instalador".</b> Serve para Windows 7 a 11, 32 ou 64 bits.</div>
+      <div><b>2. Execute o instalador.</b> Ele baixa e instala o driver e o Epson Scan 2. Precisa de internet durante a instalação.</div>
+      <div><b>3. Instale com a impressora ligada.</b> Siga o instalador; para Wi-Fi, escolha a conexão sem fio quando ele pedir.</div>
+    </div>
+    <p class="rodape-tab">Não achou o modelo? Use a busca do suporte da Epson: <a href="https://epson.com.br/suporte">epson.com.br/suporte</a>. Outros países da América Latina: <a href="https://global.latin.epson.com/Suporte">global.latin.epson.com/Suporte</a>.</p>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap avisos">
+    <div><h2>Antes de resetar, leia.</h2></div>
+    <ul>
+      <li><b>O reset não limpa a almofada.</b> Troque ou lave a almofada, ou instale um coletor externo. Senão a tinta vaza sobre a placa.</li>
+      <li><b>Use por sua conta.</b> Gravar a EEPROM com dados errados pode danificar a impressora. O programa faz backup antes e só permite o reset permanente nos modelos que estão no banco.</li>
+      <li><b>Não é um programa oficial da Epson.</b> É compatível com impressoras Epson. Epson é marca registrada da Seiko Epson Corporation.</li>
+      <li><b>Código aberto (EUPL-1.2).</b> Usa a biblioteca epson_print_conf. O código-fonte é distribuído junto com o programa.</li>
+    </ul>
+  </div>
+</section>
+
+<section style="padding-top:0">
+  <div class="wrap contato">
+    <img src="img/logo.jpg" alt="Info 3D Cartuchos Express">
+    <div>
+      <h3>Não quer fazer sozinho? Traga para a bancada.</h3>
+      <p>Assistência técnica Info 3D Cartuchos Express: troca de almofada, placa, cabeça de impressão e reset.</p>
+      <div class="tel">(21) 98660-0466</div>
+    </div>
+    <a class="bt bt-wpp" style="padding:13px 22px;font-size:16px" href="https://wa.me/5521986600466">Chamar no WhatsApp</a>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Printer's 3D Utility • Info 3D Cartuchos Express</span>
+    <span>Grátis e de código aberto (EUPL-1.2)</span>
+  </div>
+</footer>
+<div class="cmyk" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+<script>
+  // Escada do teste de bicos: blocos C, M, Y, K em degraus, como no padrão impresso pela Epson.
+  (function () {
+    var el = document.getElementById("bicos");
+    if (!el) return;
+    var cores = ["var(--ciano)", "var(--magenta)", "var(--amarelo)", "var(--tinta)"];
+    var html = "";
+    for (var i = 0; i < 96; i++) {
+      var h = 30 + 70 * ((i % 8) / 7);
+      html += '<span style="background:' + cores[Math.floor(i / 24)] + ';height:' + h + '%"></span>';
+    }
+    el.innerHTML = html;
+  })();
+
+  // Drivers: cartões dos modelos mais comuns, com link para o suporte oficial da Epson Brasil.
+  (function () {
+    var modelos = [
+      ["L355", "Multifuncional Wi-Fi", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L355/s/SPT_C11CC86201", "https://ftp.epson.com/latin/drivers/Multi/l355__/L355_Lite_Installer_Win_3.0ASP_GM.exe"],
+      ["L395", "Multifuncional Wi-Fi", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L395/s/SPT_C11CF46301", "https://ftp.epson.com/latin/drivers/inkjet/L395_Lite_LA.exe"],
+      ["L1250", "Impressora Wi-Fi", "https://epson.com.br/Suporte/Impressoras/Impressoras-de-fun%C3%A7%C3%A3o-%C3%BAnica/Epson-L/Epson-L1250/s/SPT_C11CJ71301", "https://ftp.epson.com/latin/drivers/inkjet/L1250_Lite_LA.exe"],
+      ["L3110", "Multifuncional", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L3110/s/SPT_C11CG87301", "https://ftp.epson.com/latin/drivers/inkjet/L3110_Lite_LA.exe"],
+      ["L3150", "Multifuncional Wi-Fi", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L3150/s/SPT_C11CG86301", "https://ftp.epson.com/latin/drivers/inkjet/L3150_Lite_LA.exe"],
+      ["L3210", "Multifuncional", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L3210/s/SPT_C11CJ68301", "https://ftp.epson.com/latin/drivers/inkjet/L3210_Lite_LA.exe"],
+      ["L3250", "Multifuncional Wi-Fi", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L3250/s/SPT_C11CJ67301", ""],
+      ["L4160", "Multifuncional Wi-Fi", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L4160/s/SPT_C11CG23301", "https://ftp.epson.com/latin/drivers/inkjet/L4160_Lite_LA.exe"],
+      ["L4260", "Multifuncional Wi-Fi duplex", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L4260/s/SPT_C11CJ63301", "https://ftp.epson.com/latin/drivers/inkjet/L4260_Lite_LA.exe"],
+      ["L5190", "Multifuncional com fax", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L5190/s/SPT_C11CG85301", "https://ftp.epson.com/latin/drivers/inkjet/L5190_Lite_LA.exe"],
+      ["L6191", "Multifuncional com fax", "https://epson.com.br/Suporte/Impressoras/Impressoras-multifuncionais/Epson-L/Epson-L6191/s/SPT_C11CG19302", "https://ftp.epson.com/latin/drivers/inkjet/L6191_Lite_LA.exe"],
+      ["L8050", "Fotográfica Wi-Fi", "https://epson.com.br/Suporte/Impressoras/Impressoras-de-fun%C3%A7%C3%A3o-%C3%BAnica/Epson-L/Epson-L8050/s/SPT_C11CK37301", "https://ftp.epson.com/latin/drivers/inkjet/L8050_Lite_SPLA.exe"],
+      ["L120", "", "", " "],
+      ["L375", "", "", " "],
+      ["L380", "", "", " "],
+      ["L396", "", "", " "],
+      ["L805", "", "", " "],
+      ["L1110", "", "", " "],
+      ["L3160", "", "", " "],
+      ["L3251", "", "", " "],
+      ["L4150", "", "", " "],
+      ["L5290", "", "", " "],
+      ["L6161", "", "", " "],
+      ["L6171", "", "", " "],
+      ["L14150", "", "", " "]
+    ];
+    var lista = document.getElementById("lista-drv");
+    var busca = document.getElementById("busca-drv");
+    if (!lista) return;
+    function desenha() {
+      var t = (busca.value || "").toUpperCase().replace(/\s/g, "");
+      var html = "";
+      modelos.forEach(function (m) {
+        if (t && m[0].indexOf(t) < 0) return;
+        var oficial = m[2] !== "";
+        html += '<div class="drv"><b>' + m[0] + '</b><span>' + (m[1] || "Pesquisar no suporte Epson") + '</span>';
+        if (m[3] && m[3] !== " ") {
+          html += '<a class="drv-bt" href="' + m[3] + '">Baixar instalador (Windows)</a>';
+        }
+        html += '<a class="drv-lk" href="' + (oficial ? m[2] : "https://epson.com.br/suporte") + '">' +
+                (oficial ? "Página do modelo (Mac, firmware, manuais) →" : "Abrir suporte Epson e pesquisar →") + '</a></div>';
+      });
+      lista.innerHTML = html || '<p style="color:var(--cinza)">Modelo fora da lista: pesquise direto em epson.com.br/suporte.</p>';
+    }
+    busca.addEventListener("input", desenha);
+    desenha();
+  })();
+</script>
+</body>
+</html>
