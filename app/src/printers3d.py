@@ -35,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "2.3"
+VERSAO = "2.4"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -746,7 +746,7 @@ class App(tk.Tk):
         self.wf = {"passo": 0, "auto": None}
         self.wf_resp = {p["id"]: tk.StringVar() for p in teste_wifi.PASSOS}
         self.wf_extra = {p["id"]: tk.StringVar() for p in teste_wifi.PASSOS}
-        self.wf_dados = {k: tk.StringVar() for k in ("os", "cliente", "queixa", "tecnico")}
+        self.wf_dados = {k: tk.StringVar() for k in ("os", "cliente", "queixa", "tecnico", "servico", "valor")}
         self.wf_dados["queixa"].set("Não conecta ao Wi-Fi")
         self.wf_titulos = ["Dados do atendimento"] + [p["titulo"] for p in teste_wifi.PASSOS] + [
             "4. Verificação pelo programa", "5. Laudo e relatório"]
@@ -777,7 +777,7 @@ class App(tk.Tk):
     def _wf_novo(self):
         for v in list(self.wf_resp.values()) + list(self.wf_extra.values()):
             v.set("")
-        for k in ("os", "cliente", "tecnico"):
+        for k in ("os", "cliente", "tecnico", "servico", "valor"):
             self.wf_dados[k].set("")
         self.wf_dados["queixa"].set("Não conecta ao Wi-Fi")
         self.wf.update(passo=0, auto=None)
@@ -806,9 +806,14 @@ class App(tk.Tk):
             g = ttk.Frame(c)
             g.pack(anchor="w", pady=10)
             for r, (k, t) in enumerate((("os", "Nº da OS"), ("cliente", "Cliente"),
-                                         ("queixa", "Queixa do cliente"), ("tecnico", "Técnico"))):
+                                         ("queixa", "Queixa do cliente"), ("tecnico", "Técnico"),
+                                         ("servico", "Serviço realizado / peça trocada"), ("valor", "Valor"))):
                 ttk.Label(g, text=t).grid(row=r, column=0, sticky="w", pady=4, padx=(0, 10))
                 ttk.Entry(g, textvariable=self.wf_dados[k], width=44).grid(row=r, column=1, sticky="w")
+            ttk.Label(c, wraplength=620, justify="left", foreground=COR["cinza"], text=(
+                "Trocou alguma peça (ex.: \"Troca da placa Wi-Fi\")? Preencha o serviço: o laudo sai como "
+                "\"aprovado após reparo\". Os testes dos próximos passos são os feitos DEPOIS do reparo."
+            )).pack(anchor="w", pady=(4, 0))
         elif 1 <= i <= len(teste_wifi.PASSOS):
             p = teste_wifi.PASSOS[i - 1]
             ttk.Label(c, text=p["instrucao"], wraplength=640, justify="left").pack(anchor="w")
@@ -837,7 +842,7 @@ class App(tk.Tk):
             self.wf_res.pack(anchor="w", pady=8)
         else:
             sit, laudo, rec = teste_wifi.concluir({k: v.get() or None for k, v in self.wf_resp.items()},
-                                                  self.wf["auto"])
+                                                  self.wf["auto"], self.wf_dados["servico"].get())
             rot, cor = teste_wifi.SITUACAO[sit]
             ttk.Label(c, text=rot, foreground=cor, font=("Segoe UI", 14, "bold")).pack(anchor="w")
             ttk.Label(c, text="Laudo (pode editar):").pack(anchor="w", pady=(10, 2))

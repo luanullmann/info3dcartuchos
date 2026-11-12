@@ -109,13 +109,34 @@ def verificar_rede(ip: str) -> dict:
 
 
 # ---------------------------------------------------------------- conclusão
-def concluir(resp: dict, auto: dict | None) -> tuple[str, str, list[str]]:
-    """(situação: ok|rede_cliente|roteador|defeito|incompleto, laudo, recomendações)"""
+def concluir(resp: dict, auto: dict | None, servico: str = "") -> tuple[str, str, list[str]]:
+    """(situação: ok|rede_cliente|reparado|roteador|defeito|incompleto, laudo, recomendações)"""
     folha = resp.get("folha")
     direct = resp.get("direct")
     roteador = resp.get("roteador")
     rede_ok = (auto or {}).get("respondeu") or roteador == "ok"
     rec: list[str] = []
+    servico = (servico or "").strip()
+
+    if servico and rede_ok:
+        laudo = f"Constatado defeito no Wi-Fi da impressora. Serviço realizado: {servico}."
+        laudo += " Após o reparo, o Wi-Fi foi testado na loja e está funcionando: conectou no roteador"
+        if (auto or {}).get("respondeu"):
+            laudo += f" e respondeu pela rede no IP {auto['ip']}"
+        if (auto or {}).get("teste_bicos"):
+            laudo += ", com impressão de teste enviada pelo Wi-Fi"
+        if direct == "ok":
+            laudo += "; o Wi-Fi Direct também funcionou"
+        laudo += "."
+        rec = [
+            "Conectar a impressora no Wi-Fi da residência (app Epson Smart Panel ou WPS do roteador): "
+            "na loja ela ficou configurada na rede da assistência.",
+            "Usar rede de 2,4 GHz com segurança WPA2.",
+        ]
+        return "reparado", laudo, rec
+    if servico and not rede_ok:
+        return "incompleto", (f"Serviço realizado: {servico}. Falta testar a conexão depois do reparo "
+                              "(passo 3 e verificação pelo programa)."), []
 
     if rede_ok:
         partes = ["Wi-Fi da impressora testado na loja e funcionando: conectou no roteador"]
@@ -170,6 +191,7 @@ def concluir(resp: dict, auto: dict | None) -> tuple[str, str, list[str]]:
 SITUACAO = {
     "ok": ("APROVADO", "#16a34a"),
     "rede_cliente": ("APROVADO: problema na rede do cliente", "#16a34a"),
+    "reparado": ("APROVADO APÓS REPARO", "#16a34a"),
     "roteador": ("ATENÇÃO", "#d97706"),
     "defeito": ("REPROVADO: defeito no Wi-Fi", "#dc2626"),
     "incompleto": ("INCOMPLETO", "#6b7280"),
@@ -223,7 +245,8 @@ def gerar_relatorio(dados: dict) -> str:
            ("IP na loja", auto.get("ip") if auto.get("respondeu") else None)]
     imp_html = "".join(f"<div><span>{e(k)}</span><b>{e(str(v))}</b></div>" for k, v in imp if v)
     os_ = [("OS nº", dados.get("os")), ("Cliente", dados.get("cliente")), ("Queixa", dados.get("queixa")),
-           ("Técnico", dados.get("tecnico"))]
+           ("Técnico", dados.get("tecnico")), ("Serviço realizado", dados.get("servico")),
+           ("Valor", dados.get("valor"))]
     os_html = "".join(f"<div><span>{e(k)}</span><b>{e(str(v))}</b></div>" for k, v in os_ if v)
     rec_html = "".join(f"<li>{e(r)}</li>" for r in rec)
 
