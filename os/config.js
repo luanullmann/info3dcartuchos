@@ -1,0 +1,9 @@
+// Configuração do OS 3D.
+// Deixe em branco para usar o MODO DEMONSTRAÇÃO (dados só neste navegador).
+// Para usar na loja de verdade (PC + celular, dados na nuvem), crie um
+// projeto grátis no Supabase e cole aqui a "Project URL" e a "anon public key"
+// (Settings > API). Veja os/LEIA-ME.md.
+window.OS3D_CONFIG = {
+  supabaseUrl: "",
+  supabaseKey: "",
+};

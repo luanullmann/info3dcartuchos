@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Acompanhe seu conserto</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilo.css">
+<style>
+.pg{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
+header{background:var(--marinho);color:#fff;padding:26px 20px 22px}
+header small{color:#C9D1E3;font-size:13px}header h1{font-size:22px;margin:6px 0 4px}header div{color:#DDE3F0;font-size:14px}
+.corpo{padding:16px;display:flex;flex-direction:column;gap:14px}
+.corpo .card{border-radius:14px}
+.lin{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:4px 0}
+.barras{display:flex;gap:6px;margin:8px 0}.barras span{flex:1;height:6px;border-radius:3px;background:#D5D9E2}
+.barras .f{background:var(--verde)}.barras .a{background:#B45309}
+.grande{min-height:52px;font-size:16px}
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<div class="pg" id="raiz"><p class="vazio">Carregando…</p></div>
+<script type="module">
+import { criarBanco, STATUS } from "./dados.js";
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const num = (s) => Number(String(s ?? "").replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
+const reais = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const raiz = document.getElementById("raiz");
+const token = new URLSearchParams(location.search).get("t") || "";
+const banco = await criarBanco();
+const PASSOS = ["orcamento", "aprovacao", "conserto", "pronta", "entregue"];
+const NOMES = ["Entrada", "Orçamento", "Conserto", "Pronta", "Entregue"];
+
+async function mostra() {
+  let os;
+  try { os = token && await banco.osPublica(token); } catch { os = null; }
+  if (!os) { raiz.innerHTML = `<div class="vazio">Link inválido ou expirado. Fale com a loja.</div>`; return; }
+  const itens = os.itens || [];
+  const tot = itens.reduce((s, i) => s + num(i.valor), 0);
+  const idx = Math.max(0, PASSOS.indexOf(os.status));
+  const zap = (os.loja_whatsapp || "").replace(/\D/g, "");
+  const st = STATUS[os.status] || { nome: os.status, cor: "cinza" };
+  raiz.innerHTML = `
+    <header><small>${esc(os.loja_nome)}</small><h1>Sua ${esc(os.modelo || os.tipo)}</h1><div>OS #${os.numero}${os.cliente ? " · " + esc(os.cliente) : ""}</div></header>
+    <div class="corpo">
+      <section class="card">
+        <span class="tag ${st.cor}">${esc(st.nome)}</span>
+        ${os.laudo ? `<p style="margin:10px 0 0;line-height:1.5">${esc(os.laudo)}</p>` : ""}
+        ${os.status === "recusada" ? `<p style="margin:10px 0 0">Orçamento recusado. Pode retirar o aparelho na loja.</p>` : `
+        <div class="barras">${PASSOS.map((_, i) => `<span class="${i < idx ? "f" : i === idx ? "a" : ""}"></span>`).join("")}</div>
+        <div class="sub" style="font-size:12px">${NOMES.map((n, i) => i === idx ? `<b style="color:#14161A">${n}</b>` : n).join(" · ")}</div>`}
+      </section>
+      ${itens.length ? `<section class="card">
+        ${itens.map((i) => `<div class="lin"><span>${esc(i.desc)}</span><span>${reais(num(i.valor))}</span></div>`).join("")}
+        <div class="lin" style="font-weight:700;font-size:17px;border-top:1px solid #E1E4EB;margin-top:6px;padding-top:10px"><span>Total</span><span>${reais(tot)}</span></div>
+        ${os.garantia_dias ? `<div class="sub" style="font-size:12px">Garantia de ${os.garantia_dias} dias no serviço</div>` : ""}
+      </section>` : ""}
+      ${os.status === "aprovacao" ? `
+        <button class="bt zap grande" type="button" id="sim">Aprovar orçamento</button>
+        <button class="bt grande" type="button" id="nao">Recusar e retirar o aparelho</button>` : ""}
+      ${zap ? `<a class="bt" href="https://wa.me/${zap.length <= 11 ? "55" + zap : zap}" target="_blank" rel="noopener">Falar com a loja no WhatsApp</a>` : ""}
+    </div>`;
+  const responde = async (aprovar) => {
+    if (!aprovar && !confirm("Recusar o orçamento?")) return;
+    document.querySelectorAll("#sim,#nao").forEach((b) => (b.disabled = true));
+    try { await banco.responder(token, aprovar); } catch (e) { alert("Não deu certo: " + e.message); }
+    mostra();
+  };
+  document.getElementById("sim")?.addEventListener("click", () => responde(true));
+  document.getElementById("nao")?.addEventListener("click", () => responde(false));
+}
+mostra();
+</script>
+</body>
+</html>
