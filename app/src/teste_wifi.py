@@ -245,8 +245,7 @@ def gerar_relatorio(dados: dict) -> str:
            ("IP na loja", auto.get("ip") if auto.get("respondeu") else None)]
     imp_html = "".join(f"<div><span>{e(k)}</span><b>{e(str(v))}</b></div>" for k, v in imp if v)
     os_ = [("OS nº", dados.get("os")), ("Cliente", dados.get("cliente")), ("Queixa", dados.get("queixa")),
-           ("Técnico", dados.get("tecnico")), ("Serviço realizado", dados.get("servico")),
-           ("Valor", dados.get("valor"))]
+           ("Técnico", dados.get("tecnico")), ("Serviço realizado", dados.get("servico"))]
     os_html = "".join(f"<div><span>{e(k)}</span><b>{e(str(v))}</b></div>" for k, v in os_ if v)
     rec_html = "".join(f"<li>{e(r)}</li>" for r in rec)
 

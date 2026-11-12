@@ -35,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "2.4"
+VERSAO = "2.5"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -746,7 +746,7 @@ class App(tk.Tk):
         self.wf = {"passo": 0, "auto": None}
         self.wf_resp = {p["id"]: tk.StringVar() for p in teste_wifi.PASSOS}
         self.wf_extra = {p["id"]: tk.StringVar() for p in teste_wifi.PASSOS}
-        self.wf_dados = {k: tk.StringVar() for k in ("os", "cliente", "queixa", "tecnico", "servico", "valor")}
+        self.wf_dados = {k: tk.StringVar() for k in ("os", "cliente", "queixa", "tecnico", "servico")}
         self.wf_dados["queixa"].set("Não conecta ao Wi-Fi")
         self.wf_titulos = ["Dados do atendimento"] + [p["titulo"] for p in teste_wifi.PASSOS] + [
             "4. Verificação pelo programa", "5. Laudo e relatório"]
@@ -777,7 +777,7 @@ class App(tk.Tk):
     def _wf_novo(self):
         for v in list(self.wf_resp.values()) + list(self.wf_extra.values()):
             v.set("")
-        for k in ("os", "cliente", "tecnico", "servico", "valor"):
+        for k in ("os", "cliente", "tecnico", "servico"):
             self.wf_dados[k].set("")
         self.wf_dados["queixa"].set("Não conecta ao Wi-Fi")
         self.wf.update(passo=0, auto=None)
@@ -807,7 +807,7 @@ class App(tk.Tk):
             g.pack(anchor="w", pady=10)
             for r, (k, t) in enumerate((("os", "Nº da OS"), ("cliente", "Cliente"),
                                          ("queixa", "Queixa do cliente"), ("tecnico", "Técnico"),
-                                         ("servico", "Serviço realizado / peça trocada"), ("valor", "Valor"))):
+                                         ("servico", "Serviço realizado / peça trocada"))):
                 ttk.Label(g, text=t).grid(row=r, column=0, sticky="w", pady=4, padx=(0, 10))
                 ttk.Entry(g, textvariable=self.wf_dados[k], width=44).grid(row=r, column=1, sticky="w")
             ttk.Label(c, wraplength=620, justify="left", foreground=COR["cinza"], text=(
