@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794453925";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;

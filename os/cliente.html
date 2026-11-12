@@ -7,7 +7,7 @@
 <title>Acompanhe seu conserto</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css">
+<link rel="stylesheet" href="estilo.css?v=1794453925">
 <style>
 .pg{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
 header{background:var(--marinho);color:#fff;padding:26px 20px 22px}
@@ -21,14 +21,14 @@ header small{color:#C9D1E3;font-size:13px}header h1{font-size:22px;margin:6px 0 
 .qr{display:flex;justify-content:center;margin:10px 0}.qr img{width:220px;height:220px;image-rendering:pixelated}
 .copia{font-family:Consolas,monospace;font-size:11px;word-break:break-all;background:#F4F5F8;border-radius:8px;padding:10px;max-height:72px;overflow:auto}
 </style>
-<script src="config.js"></script>
-<script src="vendor/qrcode.js"></script>
+<script src="config.js?v=1794453925"></script>
+<script src="vendor/qrcode.js?v=1794453925"></script>
 </head>
 <body>
 <div class="pg" id="raiz"><p class="vazio">Carregando…</p></div>
 <script type="module">
-import { criarBanco, STATUS } from "./dados.js";
-import { pixCopiaECola } from "./pix.js";
+import { criarBanco, STATUS } from "./dados.js?v=1794453925";
+import { pixCopiaECola } from "./pix.js?v=1794453925";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const num = (s) => Number(String(s ?? "").replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
 const reais = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
