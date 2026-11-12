@@ -232,7 +232,10 @@ class BancoNuvem {
 
   async loja() {
     const r = this.#ok(await this.sb.from("lojas").select("*").maybeSingle());
-    return r ? { ...LOJA_PADRAO, ...r } : null;
+    if (!r) return null;
+    // campo vazio no banco não apaga o padrão (ex.: termos da via impressa)
+    const limpo = Object.fromEntries(Object.entries(r).filter(([, v]) => v !== null && v !== ""));
+    return { ...LOJA_PADRAO, ...limpo };
   }
   async salvarLoja(dados) {
     const l = await this.loja();
