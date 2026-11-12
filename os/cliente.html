@@ -7,11 +7,16 @@
 <title>Acompanhe seu conserto</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css?v=1794455794">
+<link rel="stylesheet" href="estilo.css?v=1794456435">
 <style>
 .pg{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
-header{background:var(--marinho);color:#fff;padding:26px 20px 22px}
-header small{color:#C9D1E3;font-size:13px}header h1{font-size:22px;margin:6px 0 4px}header div{color:#DDE3F0;font-size:14px}
+.loja{background:#fff;border-bottom:1px solid var(--borda);padding:16px 18px;display:flex;gap:14px;align-items:center}
+.loja img{width:64px;height:64px;object-fit:contain;flex:none}
+.loja b{display:block;font-size:16px}.loja span{display:block;font-size:12px;color:var(--suave);line-height:1.45}
+header{background:var(--marinho);color:#fff;padding:20px 20px 18px}
+header h1{font-size:22px;margin:0 0 4px}header div{color:#DDE3F0;font-size:14px}
+.dados{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:14px;margin:0}
+.dados dt{color:var(--suave)}.dados dd{margin:0;font-weight:500;word-break:break-word}
 .corpo{padding:16px;display:flex;flex-direction:column;gap:14px}
 .corpo .card{border-radius:14px}
 .lin{display:flex;justify-content:space-between;gap:10px;font-size:14px;padding:4px 0}
@@ -21,14 +26,14 @@ header small{color:#C9D1E3;font-size:13px}header h1{font-size:22px;margin:6px 0 
 .qr{display:flex;justify-content:center;margin:10px 0}.qr img{width:220px;height:220px;image-rendering:pixelated}
 .copia{font-family:Consolas,monospace;font-size:11px;word-break:break-all;background:#F4F5F8;border-radius:8px;padding:10px;max-height:72px;overflow:auto}
 </style>
-<script src="config.js?v=1794455794"></script>
-<script src="vendor/qrcode.js?v=1794455794"></script>
+<script src="config.js?v=1794456435"></script>
+<script src="vendor/qrcode.js?v=1794456435"></script>
 </head>
 <body>
 <div class="pg" id="raiz"><p class="vazio">Carregando…</p></div>
 <script type="module">
-import { criarBanco, STATUS } from "./dados.js?v=1794455794";
-import { pixCopiaECola } from "./pix.js?v=1794455794";
+import { criarBanco, STATUS } from "./dados.js?v=1794456435";
+import { pixCopiaECola } from "./pix.js?v=1794456435";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const num = (s) => Number(String(s ?? "").replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
 const reais = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -108,8 +113,26 @@ async function mostra() {
   const zap = (os.loja_whatsapp || "").replace(/\D/g, "");
   const st = STATUS[os.status] || { nome: os.status, cor: "cinza" };
   raiz.innerHTML = `
-    <header><small>${esc(os.loja_nome)}</small><h1>Sua ${esc(os.modelo || os.tipo)}</h1><div>OS #${os.numero}${os.cliente ? " · " + esc(os.cliente) : ""}</div></header>
+    <div class="loja">
+      ${os.loja_logo ? `<img src="${esc(os.loja_logo)}" alt="Logo ${esc(os.loja_nome)}">` : ""}
+      <div><b>${esc(os.loja_nome)}</b>
+        ${os.loja_cnpj ? `<span>CNPJ ${esc(os.loja_cnpj)}</span>` : ""}
+        ${os.loja_endereco ? `<span>${esc(os.loja_endereco)}</span>` : ""}
+        ${zap ? `<span>WhatsApp ${esc(os.loja_whatsapp)}</span>` : ""}</div>
+    </div>
+    <header><h1>Sua ${esc(os.modelo || os.tipo)}</h1><div>Ordem de serviço nº ${os.numero} · entrada ${new Date(os.criado_em).toLocaleDateString("pt-BR")}</div></header>
     <div class="corpo">
+      <section class="card">
+        <h2 style="margin:0 0 10px">Dados da OS</h2>
+        <dl class="dados">
+          <dt>Cliente</dt><dd>${esc(os.cliente_nome || os.cliente)}</dd>
+          ${os.cliente_whats_final ? `<dt>WhatsApp</dt><dd>final ${esc(os.cliente_whats_final)}</dd>` : ""}
+          <dt>Aparelho</dt><dd>${esc([os.tipo, os.modelo].filter(Boolean).join(" · "))}</dd>
+          ${os.serie ? `<dt>Nº de série</dt><dd>${esc(os.serie)}</dd>` : ""}
+          ${os.defeito ? `<dt>Defeito relatado</dt><dd>${esc(os.defeito)}</dd>` : ""}
+          ${(os.acessorios || []).length ? `<dt>Veio junto</dt><dd>${esc(os.acessorios.join(", "))}</dd>` : ""}
+        </dl>
+      </section>
       <section class="card">
         <span class="tag ${st.cor}">${esc(st.nome)}</span>
         ${os.laudo ? `<p style="margin:10px 0 0;line-height:1.5">${esc(os.laudo)}</p>` : ""}

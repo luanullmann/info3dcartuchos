@@ -133,6 +133,9 @@ language sql stable security definer set search_path = public as $$
     'cliente', split_part(coalesce(o.cliente_nome, ''), ' ', 1),
     'criado_em', o.criado_em, 'eventos', o.eventos,
     'loja_nome', l.nome, 'loja_whatsapp', l.whatsapp,
+    'loja_logo', l.logo, 'loja_cnpj', l.cnpj, 'loja_endereco', l.endereco,
+    'cliente_nome', o.cliente_nome, 'cliente_whats_final', right(o.cliente_whatsapp, 4),
+    'serie', o.serie, 'defeito', o.defeito, 'acessorios', o.acessorios,
     'pix_tipo', l.pix_tipo, 'pix_chave', l.pix_chave, 'pix_cidade', l.pix_cidade,
     'pago', o.pago, 'pagamento_informado', o.pagamento_informado)
   from ordens o join lojas l on l.id = o.loja_id
