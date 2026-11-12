@@ -305,6 +305,31 @@ def detectar_modelo(conexao: str, ip: Optional[str] = None) -> Optional[str]:
     return None
 
 
+def _nome_arquivo(txt: str, padrao: str = "sem-nome") -> str:
+    """Tira caracteres proibidos em nome de pasta no Windows."""
+    txt = re.sub(r'[<>:"/\\|?*]', " ", (txt or "").strip())
+    txt = re.sub(r"\s+", " ", txt).strip(" .")
+    return (txt[:60] or padrao)
+
+
+def pasta_cliente(dados: dict, sub: Optional[str] = None) -> str:
+    """Cria e devolve a pasta organizada do serviço:
+    Clientes / <Cliente> / OS <n> - <modelo> / [sub]
+    """
+    cliente = _nome_arquivo(dados.get("cliente"), "Sem nome")
+    partes = []
+    if dados.get("os"):
+        partes.append("OS " + _nome_arquivo(str(dados["os"]), ""))
+    if dados.get("modelo"):
+        partes.append(_nome_arquivo(dados["modelo"], ""))
+    servico = " - ".join(p for p in partes if p) or _dt.date.today().strftime("%Y-%m-%d")
+    caminho = os.path.join(pasta_dados(), "Clientes", cliente, servico)
+    if sub:
+        caminho = os.path.join(caminho, _nome_arquivo(sub, "docs"))
+    os.makedirs(caminho, exist_ok=True)
+    return caminho
+
+
 def usb_conectadas() -> list:
     """Epson ligadas no USB agora (rápido: só enumera, não abre a impressora)."""
     try:

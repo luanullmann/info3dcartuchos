@@ -6,7 +6,7 @@ ocultos = [
     n for n in collect_submodules("epson_usb") if not n.startswith("epson_usb.tests")
 ] + collect_submodules("pysnmp") + collect_submodules("pysnmp_sync_adapter") + [
     "epson_usb_bridge", "find_printers", "core", "diagnostico", "erros_epson",
-    "sv_ttk", "PIL.ImageTk", "impressao",
+    "sv_ttk", "PIL.ImageTk", "impressao", "manutencao", "teste_wifi", "termo",
 ]
 
 a = Analysis(

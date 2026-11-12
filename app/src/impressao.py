@@ -139,6 +139,9 @@ def escolher_impressora(lista: list[str], padrao: str | None, modelo: str | None
 LOJA = {
     "nome": "Info 3D Cartuchos Express",
     "contato": "WhatsApp (21) 98660-0466  •  info3dcartuchos.com.br",
+    "cnpj": "11.875.686/0001-80",
+    "endereco": "Praça Doutor Nilo Peçanha, nº 137, loja 06 - Centro, Magé/RJ",
+    "whatsapp": "(21) 98660-0466",
 }
 
 

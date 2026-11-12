@@ -289,11 +289,13 @@ ul{{font-size:14px;line-height:1.55;padding-left:20px}}
   <div class="rod">Relatório gerado pelo Printer's 3D Utility</div>
 </div></body></html>"""
 
-    pasta = os.path.join(core.pasta_dados(), "relatorios")
-    os.makedirs(pasta, exist_ok=True)
-    nome = "wifi_{}_{}.html".format(
-        "".join(c for c in (auto.get("serie") or dados.get("modelo") or "impressora") if c.isalnum()),
-        agora.strftime("%Y%m%d_%H%M"))
+    if dados.get("cliente") or dados.get("os"):
+        pasta = core.pasta_cliente({"cliente": dados.get("cliente"), "os": dados.get("os"),
+                                    "modelo": dados.get("modelo") or auto.get("modelo")}, "Testes de Wi-Fi")
+    else:
+        pasta = os.path.join(core.pasta_dados(), "relatorios")
+        os.makedirs(pasta, exist_ok=True)
+    nome = "Teste de Wi-Fi {}.html".format(agora.strftime("%Y-%m-%d %H%M"))
     caminho = os.path.join(pasta, nome)
     with open(caminho, "w", encoding="utf-8") as f:
         f.write(doc)

@@ -24,6 +24,7 @@ import erros_epson
 import impressao
 import manutencao
 import teste_wifi
+import termo
 
 try:
     import sv_ttk
@@ -35,7 +36,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "3.7"
+VERSAO = "3.8"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -254,6 +255,7 @@ class App(tk.Tk):
         self.ocupado = False
         self.modelos = core.lista_modelos()
         self.ultimo_diag: dict | None = None
+        self.ultimo_info: dict | None = None
         self.barras: dict[str, tuple] = {}
         self.botoes: list = []
         self.imp_nome_m = tk.StringVar()
@@ -408,10 +410,12 @@ class App(tk.Tk):
 
         mais = ttk.Frame(f)
         mais.pack(fill="x")
-        for txt, cmd in [("Restaurar backup", self.restaurar),
+        for txt, cmd in [("📄 Termo de garantia", self.termo_garantia),
+                         ("Restaurar backup", self.restaurar),
                          ("Abrir pasta de backups", self.abrir_backups),
                          ("Descobrir chave (avançado)", self.chave)]:
-            b = ttk.Button(mais, text=txt, command=cmd)
+            estilo = {"style": "Accent.TButton"} if "Termo" in txt else {}
+            b = ttk.Button(mais, text=txt, command=cmd, **estilo)
             b.pack(side="left", padx=4)
             self.botoes.append(b)
         ttk.Label(f, foreground=COR["cinza"], wraplength=880, justify="left",
@@ -1189,6 +1193,7 @@ class App(tk.Tk):
         con, ip, modelo = par
 
         def fim(info):
+            self.ultimo_info = info
             self.lb_info.configure(
                 text=f"{info.get('modelo')}   •   Série: {info.get('serie') or '?'}   •   "
                      f"Firmware: {info.get('firmware') or '?'}")
@@ -1214,6 +1219,68 @@ class App(tk.Tk):
                           foreground=COR["cinza"]).grid(row=0, column=0, sticky="w")
         self.executar("Lendo contadores",
                       lambda: self._com_impressora(core.ler_informacoes, modelo, con, ip), fim)
+
+    def termo_garantia(self):
+        """Janela para preencher o termo de garantia; modelo e série vêm da leitura."""
+        info = self.ultimo_info or {}
+        win = tk.Toplevel(self)
+        win.title("Termo de garantia")
+        win.transient(self)
+        win.grab_set()
+        win.resizable(False, False)
+        frm = ttk.Frame(win, padding=16)
+        frm.pack(fill="both", expand=True)
+        ttk.Label(frm, text="Termo de garantia", style="Titulo.TLabel").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        campos = {}
+        linhas = [
+            ("cliente", "Cliente *", ""),
+            ("contato", "WhatsApp / contato", ""),
+            ("os", "Nº da OS", ""),
+            ("modelo", "Aparelho", info.get("modelo") or self.modelo.get().strip()),
+            ("serie", "Nº de série", info.get("serie") or ""),
+            ("servico", "Serviço realizado *", "Reset do contador de almofadas de tinta"),
+            ("tecnico", "Técnico", core.ler_ajuste("tecnico_padrao", "")),
+            ("garantia_dias", "Garantia (dias)", "90"),
+        ]
+        for i, (k, rotulo, valor) in enumerate(linhas, start=1):
+            ttk.Label(frm, text=rotulo).grid(row=i, column=0, sticky="w", pady=4, padx=(0, 10))
+            var = tk.StringVar(value=valor)
+            ttk.Entry(frm, textvariable=var, width=46).grid(row=i, column=1, sticky="we", pady=4)
+            campos[k] = var
+
+        aviso = ttk.Label(frm, foreground=COR["cinza"], wraplength=440, justify="left",
+                          text="O modelo e a série vêm da leitura da impressora. Preencha o "
+                               "cliente e o serviço; sai um PDF para imprimir e o cliente assinar.")
+        aviso.grid(row=len(linhas) + 1, column=0, columnspan=2, sticky="w", pady=(8, 10))
+
+        bts = ttk.Frame(frm)
+        bts.grid(row=len(linhas) + 2, column=0, columnspan=2, sticky="e")
+
+        def gerar():
+            dados = {k: v.get().strip() for k, v in campos.items()}
+            if not dados.get("cliente"):
+                messagebox.showwarning("Termo", "Preencha o nome do cliente.", parent=win)
+                return
+            if dados.get("tecnico"):
+                core.salvar_ajuste("tecnico_padrao", dados["tecnico"])
+            try:
+                caminho = termo.gerar_termo(dados)
+            except Exception as exc:  # noqa: BLE001
+                messagebox.showerror("Termo", f"Não consegui gerar o termo: {exc}", parent=win)
+                return
+            self.escreve(f"✔ Termo de garantia salvo: {caminho}")
+            termo.abrir(caminho)
+            win.destroy()
+            pasta_cli = os.path.dirname(os.path.dirname(caminho))
+            if messagebox.askyesno("Termo gerado",
+                                   "Termo de garantia gerado e aberto para impressão.\n\n"
+                                   "Abrir a pasta organizada deste cliente?"):
+                self._abrir(pasta_cli)
+
+        ttk.Button(bts, text="Cancelar", command=win.destroy).pack(side="right", padx=6)
+        ttk.Button(bts, text="Gerar termo", style="Accent.TButton", command=gerar).pack(side="right")
+        frm.columnconfigure(1, weight=1)
 
     def reset_perm(self):
         par = self._parametros()
