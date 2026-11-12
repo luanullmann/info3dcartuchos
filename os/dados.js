@@ -148,6 +148,7 @@ class BancoDemo {
     const os = d.ordens.find((o) => o.token === token);
     if (!os || os.status !== "aprovacao") return false;
     os.status = aprovar ? "conserto" : "recusada";
+    os.atualizado_em = new Date().toISOString();
     os.eventos.push({
       em: new Date().toISOString(),
       texto: aprovar ? "Cliente aprovou o orçamento pelo link" : "Cliente recusou o orçamento pelo link",

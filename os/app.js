@@ -87,6 +87,11 @@ function casca(ativo, html) {
 // ------------------------------------------------------------ painel
 async function painel() {
   const ordens = await banco.listarOS();
+  const assinatura = (l) => l.map((o) => o.id + o.atualizado_em).join("|");
+  vigiar(async () => {
+    const nova = await banco.listarOS();
+    if (assinatura(nova) !== assinatura(ordens)) painel();
+  });
   const conta = (st) => ordens.filter((o) => o.status === st).length;
   const kpis = [["orcamento", "Aguardando orçamento"], ["aprovacao", "Aguardando aprovação"],
     ["conserto", "Em conserto"], ["pronta", "Prontas p/ retirar"]];
@@ -365,9 +370,12 @@ async function detalhe(id) {
   $("#add-item").addEventListener("click", () => { itens.push({ desc: "", valor: "" }); desenhaItens(); });
 
   const salvar = async (novoStatus) => {
-    const st = novoStatus || $("#status").value;
-    const ev = [...(os.eventos || [])];
-    if (st !== os.status) ev.push({ em: new Date().toISOString(), texto: STATUS[st].nome });
+    // relê do banco: o cliente pode ter respondido pelo link enquanto a tela estava aberta
+    const atual = (await banco.obterOS(os.id)) || os;
+    const mexeuNoStatus = $("#status").value !== os.status;
+    const st = novoStatus || (mexeuNoStatus ? $("#status").value : atual.status);
+    const ev = [...(atual.eventos || [])];
+    if (st !== atual.status) ev.push({ em: new Date().toISOString(), texto: STATUS[st].nome });
     os = await banco.atualizarOS(os.id, {
       laudo: $("#laudo").value.trim(),
       itens: itens.filter((i) => i.desc.trim() || numero(i.valor)),
@@ -377,6 +385,15 @@ async function detalhe(id) {
     });
     return os;
   };
+
+  vigiar(async () => {
+    const atual = await banco.obterOS(os.id);
+    if (atual && atual.atualizado_em !== os.atualizado_em) {
+      const ultimo = (atual.eventos || []).at(-1);
+      toast(ultimo ? ultimo.texto : "OS atualizada");
+      detalhe(os.id);
+    }
+  });
 
   $("#salvar").addEventListener("click", async () => { await salvar(); toast("Salvo"); detalhe(os.id); });
   $("#enviar-orc")?.addEventListener("click", async () => {
@@ -481,7 +498,23 @@ function telaLogin() {
 }
 
 // ------------------------------------------------------------ rotas
+// Atualiza a tela sozinha quando algo muda (outra aba, celular, cliente pelo link).
+let vigia = null;
+function vigiar(checar) {
+  vigia = checar;
+}
+async function verificar() {
+  if (!vigia || document.hidden) return;
+  if (document.activeElement && ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+  try { await vigia(); } catch { /* sem rede: tenta depois */ }
+}
+setInterval(verificar, 15000);
+window.addEventListener("focus", verificar);
+window.addEventListener("storage", verificar);
+document.addEventListener("visibilitychange", verificar);
+
 async function rota() {
+  vigia = null;
   try {
     if (!(await banco.sessao())) return telaLogin();
     loja = await banco.loja();

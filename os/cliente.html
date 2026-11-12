@@ -66,7 +66,10 @@ async function mostra() {
   const responde = async (aprovar) => {
     if (!aprovar && !confirm("Recusar o orçamento?")) return;
     document.querySelectorAll("#sim,#nao").forEach((b) => (b.disabled = true));
-    try { await banco.responder(token, aprovar); } catch (e) { alert("Não deu certo: " + e.message); }
+    try {
+      const ok = await banco.responder(token, aprovar);
+      if (!ok) alert("Este orçamento já foi respondido ou mudou. Veja o status atualizado.");
+    } catch (e) { alert("Não deu certo: " + e.message); }
     mostra();
   };
   document.getElementById("sim")?.addEventListener("click", () => responde(true));
