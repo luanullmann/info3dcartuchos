@@ -35,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "2.8"
+VERSAO = "2.9"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -439,15 +439,27 @@ class App(tk.Tk):
         self.cb_imp_m.bind("<<ComboboxSelected>>", lambda _e: self._lembrar_impressora(self.imp_nome_m.get()))
         self.cb_imp_m.grid(row=1, column=1, sticky="w")
         ttk.Button(lp, text="Atualizar", command=self.carregar_impressoras).grid(row=1, column=2, padx=6)
-        for i, chave in enumerate(("bicos", "cl1", "cl2", "cl3")):
+        linha = 2
+        for chave in ("bicos", "cl1", "cl2"):
             r = manutencao.ROTINAS[chave]
             estilo = "Accent.TButton" if chave == "cl1" else "TButton"
             b = ttk.Button(lp, text=r["nome"], style=estilo, width=34,
                            command=lambda c=chave: self.rodar_manut(c))
-            b.grid(row=2 + i, column=0, columnspan=2, sticky="w", pady=3)
+            b.grid(row=linha, column=0, columnspan=2, sticky="w", pady=3)
             self.botoes.append(b)
             ttk.Label(lp, text=r["aviso"], wraplength=300, foreground=COR["cinza"],
-                      font=("Segoe UI", 8), justify="left").grid(row=2 + i, column=2, sticky="w", padx=6)
+                      font=("Segoe UI", 8), justify="left").grid(row=linha, column=2, sticky="w", padx=6)
+            linha += 1
+        # Carga de tinta: não há comando bruto confiável para a L-series; usamos
+        # a rotina oficial do driver Epson (Limpeza de força da tinta).
+        bc = ttk.Button(lp, text="Carga de tinta (Limpeza intensa do driver Epson)",
+                        width=34, command=self.carga_tinta_driver)
+        bc.grid(row=linha, column=0, columnspan=2, sticky="w", pady=3)
+        ttk.Label(lp, text="A carga de tinta de verdade é feita pela rotina oficial do "
+                           "driver Epson (abre a aba Manutenção). Gasta MUITA tinta e enche "
+                           "a almofada: só com ar na linha ou após troca de peças.",
+                  wraplength=300, foreground=COR["cinza"], font=("Segoe UI", 8),
+                  justify="left").grid(row=linha, column=2, sticky="w", padx=6)
 
         fw = ttk.LabelFrame(esq, text=" Firmware ", padding=10)
         fw.pack(fill="x", pady=10)
@@ -472,7 +484,7 @@ class App(tk.Tk):
                         "teste de novo. Até 2 vezes CL1, depois uma CL2.\n• Não repita sem parar: "
                         "cada limpeza enche a almofada.\n• Continuou falhando depois da CL2? "
                         "Deixe descansar 6 h ou mais, ou faça limpeza manual do cabeçote.\n"
-                        "• CL3 (carga de tinta) só depois de troca de peças ou com ar na linha.\n"
+                        "• Carga de tinta: só depois de troca de peças (cabeçote, damper, mangueira) ou com ar na linha. Na L-series ela é feita pela rotina oficial do driver Epson, pelo botão \"Carga de tinta\".\n"
                         "• O efeito exato de cada nível varia por modelo; teste na bancada antes.\n\n")
         t.insert("end", manutencao.AVISO_FIRMWARE)
         t.configure(state="disabled")
@@ -496,12 +508,34 @@ class App(tk.Tk):
         dest = self._destino_manut()
         if not dest:
             return
-        if chave in ("cl2", "cl3") and not messagebox.askyesno(
+        if chave == "cl2" and not messagebox.askyesno(
                 r["nome"], r["aviso"] + "\n\nContinuar?"):
             return
         self.executar(r["nome"], lambda: manutencao.executar(chave, **dest),
                       lambda via: self.escreve(f"✔ {r['nome']} enviado por {via}. "
                                                "Aguarde a impressora parar antes de outro comando."))
+
+    def carga_tinta_driver(self):
+        if self.conexao.get() != core.USB or not self.imp_nome_m.get().strip():
+            messagebox.showinfo(
+                "Carga de tinta",
+                "A carga de tinta usa a rotina oficial do driver Epson, que roda pelo "
+                "cabo USB com o driver instalado.\n\nMarque 'Cabo USB' e escolha a "
+                "impressora do Windows (botão Atualizar).")
+            return
+        if not messagebox.askyesno(
+                "Carga de tinta (Limpeza intensa)",
+                "Vou abrir a Manutenção do driver Epson. Lá, clique em "
+                "'Limpeza de força da tinta' (Power Ink Flushing).\n\n"
+                "⚠ Gasta MUITA tinta e enche bastante a almofada. Confira se os tanques "
+                "estão cheios. Use só com ar na linha ou após troca de peças.\n\nContinuar?"):
+            return
+        try:
+            via = manutencao.abrir_limpeza_driver(self.imp_nome_m.get().strip())
+            self.escreve("Abri a Manutenção do driver Epson (" + via + "). "
+                         "Vá na aba Manutenção > Limpeza de força da tinta.")
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("Carga de tinta", str(exc))
 
     def ler_firmware(self):
         p = self._parametros(precisa_modelo=False)

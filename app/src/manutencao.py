@@ -57,26 +57,37 @@ def _teste_bicos() -> bytes:
                      SAIR_REMOTO, FIM_TRABALHO])
 
 
-# Carga de tinta: sequência usada pela Epson em parte da linha EcoTank
-# (epson_escp2: "Ink charge"). Gasta MUITA tinta e enche a almofada.
-_CARGA = INIT + bytes.fromhex("1B 7C 00 06 00 19 07 84 7B 42 0A")
-
 ROTINAS = {
+    "bicos": {"nome": "Teste de bicos (nozzle check)",
+              "dados": _teste_bicos,
+              "aviso": "Imprime o padrão de bicos da Epson. Coloque papel A4."},
     "cl1": {"nome": "CL1 - Limpeza normal",
             "dados": lambda: _limpeza(0x00),
             "aviso": "Limpeza comum de todas as cores (~1 min)."},
     "cl2": {"nome": "CL2 - Limpeza forte (power clean)",
             "dados": lambda: _limpeza(0x10),
-            "aviso": "Gasta mais tinta e enche mais a almofada. Use se a CL1 não resolveu."},
-    "cl3": {"nome": "CL3 - Carga de tinta (initial ink charge)",
-            "dados": lambda: _CARGA,
-            "aviso": "Enche todas as mangueiras de novo: gasta MUITA tinta e enche a "
-                     "almofada. Só depois de trocar cabeçote, damper ou mangueira, ou com "
-                     "ar na linha. Confira se os tanques estão cheios."},
-    "bicos": {"nome": "Teste de bicos (nozzle check)",
-              "dados": _teste_bicos,
-              "aviso": "Imprime o padrão de bicos da Epson. Coloque papel A4."},
+            "aviso": "Limpeza mais profunda (a mais forte que o programa envia direto). "
+                     "Gasta mais tinta e enche mais a almofada. Use se a CL1 não resolveu."},
 }
+
+
+def abrir_limpeza_driver(impressora_windows: str | None = None) -> str:
+    """Abre a Manutenção do driver Epson no Windows (onde fica a
+    'Limpeza de força da tinta' / Power Ink Flushing = a carga de tinta de
+    verdade e segura). Não existe comando bruto confiável de carga de tinta
+    para a L3250, então usamos a rotina oficial do driver."""
+    if sys.platform != "win32":
+        raise RuntimeError("A carga de tinta pelo driver só funciona no Windows.")
+    import subprocess
+    alvo = impressora_windows or ""
+    # /e abre as Preferências de Impressão (onde está a aba Manutenção)
+    try:
+        subprocess.Popen(["rundll32.exe", "printui.dll,PrintUIEntry", "/e", "/n", alvo])
+        return "preferências do driver"
+    except Exception:  # noqa: BLE001
+        # fallback: lista de impressoras do Windows
+        subprocess.Popen(["rundll32.exe", "shell32.dll,Control_RunDLL", "printers"])
+        return "lista de impressoras do Windows"
 
 
 # ------------------------------------------------------------- transporte
