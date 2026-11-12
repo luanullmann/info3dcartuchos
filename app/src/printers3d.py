@@ -35,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "2.6"
+VERSAO = "2.7"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -360,6 +360,10 @@ class App(tk.Tk):
         m = self.modelo.get().strip()
         if not m:
             self.lb_suporte.configure(text="Escolha ou detecte o modelo.", foreground=COR["cinza"])
+        elif m in core.EQUIVALENTES:
+            self.lb_suporte.configure(foreground=COR["acento"],
+                                      text=f"✔ {m} = mesma impressora da {core.EQUIVALENTES[m]}: leitura e reset "
+                                           "permanente pelo USB (novo, confira na 1ª vez).")
         elif core.modelo_suportado(m):
             self.lb_suporte.configure(foreground=COR["ok"],
                                       text=f"✔ {m} no banco: leitura e reset permanente.")
@@ -1181,9 +1185,18 @@ class App(tk.Tk):
                                    "no banco.\nContinuar?"):
             return
 
+        if not core.modelo_suportado(modelo):
+            messagebox.showwarning(
+                "Descobrir chave",
+                f"A busca de chave precisa partir de um modelo do banco.\n\nEscolha no campo Modelo um "
+                f"modelo PARECIDO com a {modelo} (mesma linha/ano) e tente de novo.")
+            return
+
         def fim(k):
-            self.escreve(f"✔ Chave de leitura: {list(k)} (cadastre em modelos_extra.json)" if k
-                         else "✖ Nenhuma chave encontrada.")
+            msg = (f"✔ Chave de leitura encontrada: {list(k)}" if k else
+                   "✖ Nenhuma chave encontrada. O firmware pode estar bloqueando a leitura da memória.")
+            self.escreve(msg)
+            messagebox.showinfo("Descobrir chave", msg)
         self.executar("Procurando chave",
                       lambda: self._com_impressora(
                           lambda imp: core.descobrir_chave(imp, lambda m: self.fila.put(("status", m))),

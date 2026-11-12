@@ -112,19 +112,46 @@ def _converte_entrada(entrada: dict) -> dict:
 def carregar_modelos_extra(caminho: Optional[str] = None) -> dict:
     caminho = caminho or arquivo_modelos_extra()
     if not os.path.exists(caminho):
-        return {}
+        return modelos_embutidos()
     try:
         with open(caminho, encoding="utf-8") as f:
             dados = json.load(f)
     except (OSError, ValueError) as exc:
         log.error("Não consegui ler %s: %s", caminho, exc)
-        return {}
+        return modelos_embutidos()
     modelos = dados.get("modelos", {}) if isinstance(dados, dict) else {}
-    return {
+    usuario = {
         nome: _converte_entrada(ent)
         for nome, ent in modelos.items()
         if isinstance(ent, dict) and not nome.startswith("_")
     }
+    return {**modelos_embutidos(), **usuario}
+
+
+# Modelos da América Latina que são a mesma impressora de um modelo do banco
+# (mesma placa e firmware, só muda o nome). A biblioteca registra o comando de
+# reset da L3250 junto com a família ET-2812 (firmware XF26).
+EQUIVALENTES = {
+    "L3250": "ET-2812",
+    "L3251": "ET-2812",
+    "L3210": "ET-2812",
+}
+_cache_embutidos: Optional[dict] = None
+
+
+def modelos_embutidos() -> dict:
+    global _cache_embutidos
+    if _cache_embutidos is None:
+        import copy
+        base = _epc.EpsonPrinter().PRINTER_CONFIG
+        _cache_embutidos = {}
+        for nome, igual in EQUIVALENTES.items():
+            if igual in base and nome not in base:
+                ent = copy.deepcopy(base[igual])
+                ent.pop("alias", None)
+                ent.pop("same-as", None)
+                _cache_embutidos[nome] = ent
+    return dict(_cache_embutidos)
 
 
 # --------------------------------------------------------------------------
