@@ -236,6 +236,37 @@ def procurar_na_rede(progresso: Optional[Callable[[str], None]] = None) -> list[
     return resultado
 
 
+_RE_MODELO = re.compile(r"\b([A-Z]{1,3}-?\d{3,4}[A-Z]{0,3})\b")
+
+
+def modelo_do_texto(texto: Optional[str]) -> Optional[str]:
+    """Extrai um modelo conhecido de um texto tipo 'EPSON L3210 Series'."""
+    if not texto:
+        return None
+    t = texto.upper().replace("EPSON", " ").replace("SERIES", " ").replace("(", " ").replace(")", " ")
+    conhecidos = {m.upper(): m for m in lista_modelos()}
+    for tok in _RE_MODELO.findall(t):
+        if tok in conhecidos:
+            return conhecidos[tok]
+    return None
+
+
+def modelo_pelo_windows() -> Optional[str]:
+    """Pega o modelo da impressora Epson conectada na lista do Windows (sem mexer no USB)."""
+    try:
+        import impressao
+        lista, _padrao = impressao.listar_impressoras()
+        desconectadas = getattr(impressao, "DESCONECTADAS", set())
+        ligadas = [n for n in lista if n not in desconectadas and "EPSON" in n.upper()]
+        for nome in (ligadas or [n for n in lista if "EPSON" in n.upper()]):
+            m = modelo_do_texto(nome)
+            if m:
+                return m
+    except Exception as exc:  # noqa: BLE001
+        log.debug("modelo pelo Windows: %s", exc)
+    return None
+
+
 def detectar_modelo(conexao: str, ip: Optional[str] = None) -> Optional[str]:
     """Pergunta à impressora qual é o modelo."""
     imp = criar_impressora(None, conexao, ip)
@@ -252,9 +283,14 @@ def detectar_modelo(conexao: str, ip: Optional[str] = None) -> Optional[str]:
                 nome = imp.get_snmp_info("Model").get("Model")
             except Exception as exc:  # noqa: BLE001
                 log.debug("snmp Model falhou: %s", exc)
-        return normaliza_nome_modelo(nome) if nome else None
+        if nome:
+            return normaliza_nome_modelo(nome)
     finally:
         fechar(imp)
+    # di não respondeu (comum em EcoTank no USB): tenta pelo nome no Windows
+    if conexao == USB:
+        return modelo_pelo_windows()
+    return None
 
 
 def usb_conectadas() -> list:
