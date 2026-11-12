@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794455242";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794455794";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -51,11 +51,12 @@ function mensagem(os) {
       return `${oi}\nO orçamento da sua ${ap} (OS #${os.numero}) está pronto.\n` +
         (os.laudo ? `${os.laudo}\n` : "") + `${itens}\nTotal: ${reais(total(os))}` +
         (os.garantia_dias ? ` · garantia de ${os.garantia_dias} dias` : "") +
+        "\nPagamento: Pix pelo link ou cartão (débito/crédito) direto na loja, na retirada." +
         `\n\nAprove ou recuse por aqui${loja.pix_chave ? " (dá para pagar por Pix no mesmo link)" : ""}: ${link}`;
     }
     case "pronta":
       return `${oi}\nSua ${ap} (OS #${os.numero}) está pronta para retirar!` +
-        (total(os) ? ` Valor: ${reais(total(os))}${os.pago ? " (já pago, obrigado!)" : loja.pix_chave ? " (pode pagar por Pix no link)" : ""}.` : "") +
+        (total(os) ? ` Valor: ${reais(total(os))}${os.pago ? " (já pago, obrigado!)" : " (Pix pelo link, ou cartão/Pix direto na loja)"}.` : "") +
         (loja.endereco ? `\nEndereço: ${loja.endereco}` : "") + `\nDetalhes: ${link}`;
     case "conserto":
       return `${oi}\nSua ${ap} (OS #${os.numero}) já está em conserto. Acompanhe: ${link}`;
