@@ -173,7 +173,9 @@ def preparar_pagina(caminho: str, impressora: str = "", modelo: str = "",
            fill=(200, 200, 200), width=max(1, int(4 * esc)))
     x = int(150 * esc)
     try:
-        logo = Image.open(_recurso("logo_loja.png")).convert("RGB")
+        bruto = Image.open(_recurso("logo_loja.png")).convert("RGBA")
+        logo = Image.new("RGB", bruto.size, "white")
+        logo.paste(bruto, mask=bruto.split()[3])  # fundo transparente vira branco
         lado = int(250 * esc)
         logo = logo.resize((lado, lado))
         im.paste(logo, (x, y0 + int(45 * esc)))

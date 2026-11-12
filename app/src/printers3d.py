@@ -23,6 +23,7 @@ import diagnostico as dg
 import erros_epson
 import impressao
 import manutencao
+import teste_wifi
 
 try:
     import sv_ttk
@@ -34,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "2.2"
+VERSAO = "2.3"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -375,6 +376,7 @@ class App(tk.Tk):
         self._aba_diag()
         self._aba_tabela()
         self._aba_teste()
+        self._aba_wifi()
         self._aba_log()
 
     def _aba_reset(self):
@@ -736,6 +738,194 @@ class App(tk.Tk):
             arq = impressao.preparar_pagina(caminho, impn, modelo, com_loja)
             impressao.imprimir_imagem(arq, impn, n)
         self.executar(f"Imprimindo '{nome}'", tarefa, fim)
+
+    # ------------------------------------------------------------ teste de Wi-Fi
+    def _aba_wifi(self):
+        f = ttk.Frame(self.nb, padding=12)
+        self.nb.add(f, text="  Teste de Wi-Fi  ")
+        self.wf = {"passo": 0, "auto": None}
+        self.wf_resp = {p["id"]: tk.StringVar() for p in teste_wifi.PASSOS}
+        self.wf_extra = {p["id"]: tk.StringVar() for p in teste_wifi.PASSOS}
+        self.wf_dados = {k: tk.StringVar() for k in ("os", "cliente", "queixa", "tecnico")}
+        self.wf_dados["queixa"].set("Não conecta ao Wi-Fi")
+        self.wf_titulos = ["Dados do atendimento"] + [p["titulo"] for p in teste_wifi.PASSOS] + [
+            "4. Verificação pelo programa", "5. Laudo e relatório"]
+
+        esq = ttk.Frame(f)
+        esq.pack(side="left", fill="y")
+        ttk.Label(esq, text="Passo a passo", style="Titulo.TLabel").pack(anchor="w", pady=(0, 8))
+        self.wf_lbs = []
+        for t in self.wf_titulos:
+            lb = ttk.Label(esq, text="○  " + t, wraplength=230, foreground=COR["cinza"])
+            lb.pack(anchor="w", pady=4)
+            self.wf_lbs.append(lb)
+        ttk.Separator(f, orient="vertical").pack(side="left", fill="y", padx=14)
+
+        dir_ = ttk.Frame(f)
+        dir_.pack(side="left", fill="both", expand=True)
+        self.wf_corpo = ttk.Frame(dir_)
+        self.wf_corpo.pack(fill="both", expand=True)
+        nav = ttk.Frame(dir_)
+        nav.pack(fill="x", pady=(10, 0))
+        self.wf_volta = ttk.Button(nav, text="← Voltar", command=lambda: self._wf_ir(-1))
+        self.wf_volta.pack(side="left")
+        self.wf_prox = ttk.Button(nav, text="Próximo →", style="Accent.TButton", command=lambda: self._wf_ir(1))
+        self.wf_prox.pack(side="right")
+        ttk.Button(nav, text="Recomeçar", command=self._wf_novo).pack(side="right", padx=8)
+        self._wf_mostra()
+
+    def _wf_novo(self):
+        for v in list(self.wf_resp.values()) + list(self.wf_extra.values()):
+            v.set("")
+        for k in ("os", "cliente", "tecnico"):
+            self.wf_dados[k].set("")
+        self.wf_dados["queixa"].set("Não conecta ao Wi-Fi")
+        self.wf.update(passo=0, auto=None)
+        self._wf_mostra()
+
+    def _wf_ir(self, d):
+        self.wf["passo"] = max(0, min(len(self.wf_titulos) - 1, self.wf["passo"] + d))
+        self._wf_mostra()
+
+    def _wf_mostra(self):
+        i = self.wf["passo"]
+        for n, lb in enumerate(self.wf_lbs):
+            marca = "●" if n == i else ("✔" if n < i else "○")
+            lb.configure(text=f"{marca}  {self.wf_titulos[n]}",
+                         foreground=COR["acento"] if n == i else (COR["ok"] if n < i else COR["cinza"]))
+        for w in self.wf_corpo.winfo_children():
+            w.destroy()
+        c = self.wf_corpo
+        ttk.Label(c, text=self.wf_titulos[i], style="Titulo.TLabel").pack(anchor="w", pady=(0, 8))
+        self.wf_volta.state(["disabled"] if i == 0 else ["!disabled"])
+        self.wf_prox.state(["disabled"] if i == len(self.wf_titulos) - 1 else ["!disabled"])
+
+        if i == 0:
+            ttk.Label(c, wraplength=620, justify="left", foreground=COR["cinza"],
+                      text="Opcional: estes dados saem no relatório. O modelo vem do campo Modelo lá em cima.").pack(anchor="w")
+            g = ttk.Frame(c)
+            g.pack(anchor="w", pady=10)
+            for r, (k, t) in enumerate((("os", "Nº da OS"), ("cliente", "Cliente"),
+                                         ("queixa", "Queixa do cliente"), ("tecnico", "Técnico"))):
+                ttk.Label(g, text=t).grid(row=r, column=0, sticky="w", pady=4, padx=(0, 10))
+                ttk.Entry(g, textvariable=self.wf_dados[k], width=44).grid(row=r, column=1, sticky="w")
+        elif 1 <= i <= len(teste_wifi.PASSOS):
+            p = teste_wifi.PASSOS[i - 1]
+            ttk.Label(c, text=p["instrucao"], wraplength=640, justify="left").pack(anchor="w")
+            ttk.Label(c, text="Resultado:", style="Titulo.TLabel").pack(anchor="w", pady=(14, 4))
+            for val, txt in p["opcoes"]:
+                ttk.Radiobutton(c, text=txt, value=val, variable=self.wf_resp[p["id"]]).pack(anchor="w", pady=2)
+            if p.get("campo"):
+                ttk.Label(c, text=p["campo"]).pack(anchor="w", pady=(12, 2))
+                ttk.Entry(c, textvariable=self.wf_extra[p["id"]], width=40).pack(anchor="w")
+        elif i == len(teste_wifi.PASSOS) + 1:
+            ttk.Label(c, wraplength=640, justify="left", text=(
+                "Com a impressora no Wi-Fi da loja e o PC na mesma rede, informe o IP da folha "
+                "(ou use Procurar na rede lá em cima) e clique em Verificar. O programa confere se ela "
+                "responde, lê modelo, nº de série e firmware, e pode imprimir o teste de bicos pelo Wi-Fi.")).pack(anchor="w")
+            g = ttk.Frame(c)
+            g.pack(anchor="w", pady=10)
+            ttk.Label(g, text="IP:").pack(side="left")
+            ttk.Entry(g, textvariable=self.ip, width=18).pack(side="left", padx=6)
+            b1 = ttk.Button(g, text="Procurar na rede", command=self.procurar)
+            b1.pack(side="left")
+            b2 = ttk.Button(g, text="Verificar", style="Accent.TButton", command=self._wf_verificar)
+            b2.pack(side="left", padx=6)
+            b3 = ttk.Button(g, text="Imprimir teste de bicos pelo Wi-Fi", command=self._wf_bicos)
+            b3.pack(side="left")
+            self.wf_res = ttk.Label(c, text=self._wf_texto_auto(), wraplength=640, justify="left")
+            self.wf_res.pack(anchor="w", pady=8)
+        else:
+            sit, laudo, rec = teste_wifi.concluir({k: v.get() or None for k, v in self.wf_resp.items()},
+                                                  self.wf["auto"])
+            rot, cor = teste_wifi.SITUACAO[sit]
+            ttk.Label(c, text=rot, foreground=cor, font=("Segoe UI", 14, "bold")).pack(anchor="w")
+            ttk.Label(c, text="Laudo (pode editar):").pack(anchor="w", pady=(10, 2))
+            self.wf_laudo = tk.Text(c, height=6, wrap="word", font=("Segoe UI", 10))
+            self.wf_laudo.insert("1.0", laudo)
+            self.wf_laudo.pack(fill="x")
+            if rec:
+                ttk.Label(c, text="Recomendações:").pack(anchor="w", pady=(10, 2))
+                ttk.Label(c, text="\n".join("• " + r for r in rec), wraplength=640, justify="left").pack(anchor="w")
+            self.wf["concl"] = (sit, rec)
+            g = ttk.Frame(c)
+            g.pack(anchor="w", pady=12)
+            ttk.Button(g, text="Gerar relatório", style="Accent.TButton", command=self._wf_relatorio).pack(side="left")
+            ttk.Button(g, text="Copiar laudo", command=self._wf_copiar).pack(side="left", padx=8)
+
+    def _wf_texto_auto(self):
+        a = self.wf["auto"]
+        if not a:
+            return "Ainda não verificado."
+        if not a.get("respondeu"):
+            return f"✖ A impressora não respondeu no IP {a['ip']}. Confira se o PC está na mesma rede."
+        partes = [f"✔ Respondeu no IP {a['ip']}"]
+        for k, t in (("modelo", "Modelo"), ("serie", "Nº de série"), ("firmware", "Firmware")):
+            if a.get(k):
+                partes.append(f"{t}: {a[k]}")
+        partes.append("Porta de impressão (9100): " + ("aberta" if a.get("porta_9100") else "fechada"))
+        if a.get("teste_bicos"):
+            partes.append(f"✔ Teste de bicos enviado pelo Wi-Fi ({a['teste_bicos']})")
+        return "\n".join(partes)
+
+    def _wf_verificar(self):
+        ip = self.ip.get().strip()
+        if not ip:
+            messagebox.showwarning("Falta o IP", "Informe o IP da folha de status ou use Procurar na rede.")
+            return
+
+        def fim(r):
+            antigo = self.wf.get("auto") or {}
+            if antigo.get("teste_bicos") and antigo.get("ip") == ip:
+                r["teste_bicos"] = antigo["teste_bicos"]
+            self.wf["auto"] = r
+            if r.get("modelo") and not self.modelo.get().strip():
+                self.modelo.set(r["modelo"])
+                self._atualiza_suporte()
+            self.wf_res.configure(text=self._wf_texto_auto())
+            self.escreve(self._wf_texto_auto())
+        self.executar("Verificando a impressora pela rede", lambda: teste_wifi.verificar_rede(ip), fim)
+
+    def _wf_bicos(self):
+        ip = self.ip.get().strip()
+        if not ip:
+            messagebox.showwarning("Falta o IP", "Informe o IP primeiro.")
+            return
+
+        def fim(via):
+            self.wf["auto"] = self.wf["auto"] or {"ip": ip, "respondeu": True}
+            self.wf["auto"]["teste_bicos"] = via
+            self.wf["auto"]["respondeu"] = True
+            self.wf_res.configure(text=self._wf_texto_auto())
+            self.escreve(f"✔ Teste de bicos enviado por {via}.")
+        self.executar("Imprimindo teste de bicos pelo Wi-Fi", lambda: manutencao.executar("bicos", ip=ip), fim)
+
+    def _wf_laudo_atual(self):
+        try:
+            return self.wf_laudo.get("1.0", "end").strip()
+        except tk.TclError:
+            return ""
+
+    def _wf_copiar(self):
+        self.clipboard_clear()
+        self.clipboard_append(self._wf_laudo_atual())
+        self.status.set("Laudo copiado. Cole na OS.")
+
+    def _wf_relatorio(self):
+        sit, rec = self.wf.get("concl", ("incompleto", []))
+        dados = {k: v.get().strip() for k, v in self.wf_dados.items()}
+        dados.update(
+            modelo=self.modelo.get().strip(), situacao=sit, laudo=self._wf_laudo_atual(), recomendacoes=rec,
+            respostas={k: v.get() or None for k, v in self.wf_resp.items()},
+            extras={k: v.get().strip() for k, v in self.wf_extra.items() if v.get().strip()},
+            auto=self.wf["auto"])
+        try:
+            caminho = teste_wifi.gerar_relatorio(dados)
+        except Exception as exc:  # noqa: BLE001
+            messagebox.showerror("Relatório", f"Não consegui gerar o relatório: {exc}")
+            return
+        self.escreve(f"✔ Relatório salvo: {caminho}")
+        teste_wifi.abrir(caminho)
 
     def _aba_log(self):
         f = ttk.Frame(self.nb, padding=10)
