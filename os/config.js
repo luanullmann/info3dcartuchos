@@ -4,8 +4,8 @@
 // projeto grátis no Supabase e cole aqui a "Project URL" e a "anon public key"
 // (Settings > API). Veja os/LEIA-ME.md.
 window.OS3D_CONFIG = {
-  supabaseUrl: "",
-  supabaseKey: "",
+  supabaseUrl: "https://bygepjyfvaxaqegmiupk.supabase.co",
+  supabaseKey: "sb_publishable_FKRkdOA4oprI3XqKZ1mNlg_IJfBRsOr",
   // true depois de publicar as funções pix-criar e pix-aviso e cadastrar o token do PagBank
   pagbank: false,
 };
