@@ -165,7 +165,8 @@ def lista_modelos() -> list[str]:
     def chave(n):
         m = re.match(r"([A-Za-z\- ]*?)(\d+)", n)
         return (m.group(1), int(m.group(2)), n) if m else (n, 0, n)
-    return sorted(_base().valid_printers, key=chave)
+    modelos = set(_base().valid_printers) | set(EQUIVALENTES.keys())
+    return sorted(modelos, key=chave)
 
 
 def modelo_suportado(nome: str) -> bool:
