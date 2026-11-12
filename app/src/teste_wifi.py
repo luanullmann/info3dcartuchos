@@ -31,6 +31,7 @@ PASSOS = [
             ("padrao", "SSID \"EpsonNet\": sem nenhuma rede salva (padrão de fábrica)"),
             ("procurando", "Tem a rede do cliente, mas Link Status \"Searching\" / desconectada"),
             ("conectada", "Tem a rede do cliente e está \"Connected\""),
+            ("loja", "Já está conectada na rede da loja (ex.: depois do reparo)"),
             ("nao_imprimiu", "A folha não imprimiu"),
         ],
         "campo": "SSID que apareceu na folha (opcional)",
@@ -114,7 +115,7 @@ def concluir(resp: dict, auto: dict | None, servico: str = "") -> tuple[str, str
     folha = resp.get("folha")
     direct = resp.get("direct")
     roteador = resp.get("roteador")
-    rede_ok = (auto or {}).get("respondeu") or roteador == "ok"
+    rede_ok = (auto or {}).get("respondeu") or roteador == "ok" or folha == "loja"
     rec: list[str] = []
     servico = (servico or "").strip()
 
@@ -226,7 +227,7 @@ def gerar_relatorio(dados: dict) -> str:
         extra = extras.get(p["id"])
         if extra:
             txt += f" ({extra})"
-        icone = "✔" if v in ("ok", "conectada") else ("–" if v in (None, "pulou") else "•")
+        icone = "✔" if v in ("ok", "conectada", "loja") else ("–" if v in (None, "pulou") else "•")
         linhas.append(f"<tr><td>{e(p['titulo'])}</td><td>{icone} {e(txt)}</td></tr>")
     if auto:
         if auto.get("respondeu"):
