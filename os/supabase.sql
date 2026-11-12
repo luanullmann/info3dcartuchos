@@ -12,6 +12,9 @@ create table if not exists lojas (
   criado_em timestamptz not null default now()
 );
 
+alter table lojas add column if not exists cnpj text;
+alter table lojas add column if not exists logo text;
+
 create table if not exists membros (
   user_id uuid primary key references auth.users on delete cascade,
   loja_id uuid not null references lojas on delete cascade,

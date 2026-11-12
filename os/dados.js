@@ -14,6 +14,8 @@ const LOJA_PADRAO = {
   whatsapp: "",
   endereco: "",
   tecnicos: "",
+  cnpj: "",
+  logo: "",
   termos:
     "Aparelhos não retirados em 90 dias após o aviso de pronto poderão ser descartados. " +
     "A garantia cobre somente o serviço e as peças trocadas descritos nesta OS.",
@@ -30,7 +32,13 @@ export function soDigitos(s) {
 }
 
 // ------------------------------------------------------------ fotos
-export async function comprimirFoto(arquivo, max = 1280) {
+export function formatarCNPJ(s) {
+  const d = soDigitos(s).slice(0, 14);
+  if (d.length !== 14) return (s || "").trim();
+  return d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+}
+
+export async function comprimirFoto(arquivo, max = 1280, tipo = "image/jpeg") {
   const img = await new Promise((ok, erro) => {
     const i = new Image();
     i.onload = () => ok(i);
@@ -43,7 +51,7 @@ export async function comprimirFoto(arquivo, max = 1280) {
   c.height = Math.round(img.height * k);
   c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
   URL.revokeObjectURL(img.src);
-  return await new Promise((ok) => c.toBlob(ok, "image/jpeg", 0.8));
+  return await new Promise((ok) => c.toBlob(ok, tipo, 0.8));
 }
 
 function blobParaDataURL(blob) {
@@ -138,6 +146,9 @@ class BancoDemo {
   async enviarFoto(_osId, blob) {
     return await blobParaDataURL(blob);
   }
+  async enviarLogo(blob) {
+    return await blobParaDataURL(blob);
+  }
   async osPublica(token) {
     const d = this.#ler();
     const os = d.ordens.find((o) => o.token === token);
@@ -206,9 +217,9 @@ class BancoNuvem {
   }
   async salvarLoja(dados) {
     const l = await this.loja();
-    const { nome, whatsapp, endereco, tecnicos, termos } = dados;
+    const { nome, whatsapp, endereco, tecnicos, termos, cnpj, logo } = dados;
     this.#ok(await this.sb.from("lojas")
-      .update({ nome, whatsapp, endereco, tecnicos, termos }).eq("id", l.id));
+      .update({ nome, whatsapp, endereco, tecnicos, termos, cnpj, logo }).eq("id", l.id));
   }
   async listarOS() {
     return this.#ok(await this.sb.from("ordens").select("*")
@@ -248,6 +259,12 @@ class BancoNuvem {
     const l = await this.loja();
     const caminho = `${l.id}/${osId}/${crypto.randomUUID()}.jpg`;
     this.#ok(await this.sb.storage.from("fotos").upload(caminho, blob, { contentType: "image/jpeg" }));
+    return this.sb.storage.from("fotos").getPublicUrl(caminho).data.publicUrl;
+  }
+  async enviarLogo(blob) {
+    const l = await this.loja();
+    const caminho = `${l.id}/logo-${crypto.randomUUID()}.png`;
+    this.#ok(await this.sb.storage.from("fotos").upload(caminho, blob, { contentType: "image/png" }));
     return this.sb.storage.from("fotos").getPublicUrl(caminho).data.publicUrl;
   }
   async osPublica(token) {

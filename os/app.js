@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto } from "./dados.js";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -422,7 +422,10 @@ async function imprimir(id) {
   if (!os) { location.hash = "#/"; return; }
   const via = (quem) => `
     <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start">
-      <div><h1>${esc(loja.nome)}</h1><div>${esc(loja.endereco)}</div><div>${loja.whatsapp ? "WhatsApp " + esc(loja.whatsapp) : ""}</div></div>
+      <div style="display:flex;gap:14px;align-items:center">
+        ${loja.logo ? `<img src="${esc(loja.logo)}" alt="Logo" style="max-height:64px;max-width:150px;object-fit:contain">` : ""}
+        <div><h1>${esc(loja.nome)}</h1>${loja.cnpj ? `<div>CNPJ ${esc(loja.cnpj)}</div>` : ""}<div>${esc(loja.endereco)}</div><div>${loja.whatsapp ? "WhatsApp " + esc(loja.whatsapp) : ""}</div></div>
+      </div>
       <div style="text-align:right"><b style="font-size:18px">OS #${os.numero}</b><div>${dataHora(os.criado_em)}</div><div>${quem}</div></div>
     </div>
     <table>
@@ -454,16 +457,41 @@ async function config() {
         <label class="campo">Nome da loja<input type="text" name="nome" value="${esc(loja.nome)}"></label>
         <label class="campo">WhatsApp da loja<input type="tel" name="whatsapp" value="${esc(loja.whatsapp)}"></label>
       </div>
+      <div class="grade">
+        <label class="campo">CNPJ<input type="text" name="cnpj" inputmode="numeric" placeholder="00.000.000/0000-00" value="${esc(loja.cnpj)}"></label>
+        <div class="campo">Logo (sai na via impressa)
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <span id="logo-prev">${loja.logo ? `<img src="${esc(loja.logo)}" alt="Logo atual" style="max-height:44px;max-width:120px;object-fit:contain">` : `<span class="sub" style="font-weight:400">Sem logo</span>`}</span>
+            <label class="bt peq">Escolher imagem<input type="file" accept="image/*" class="sr" id="logo-arq"></label>
+            ${loja.logo ? `<button type="button" class="bt peq" id="logo-tirar">Remover</button>` : ""}
+          </div>
+        </div>
+      </div>
       <label class="campo">Endereço<input type="text" name="endereco" value="${esc(loja.endereco)}"></label>
       <label class="campo">Técnicos (separados por vírgula)<input type="text" name="tecnicos" value="${esc(loja.tecnicos)}" placeholder="Luan, João"></label>
       <label class="campo">Termos que saem na via impressa<textarea name="termos" rows="4">${esc(loja.termos)}</textarea></label>
       <div><button class="bt prim" type="submit">Salvar</button></div>
     </form>`);
+  let logo = loja.logo || "";
+  $("#logo-arq").addEventListener("change", async (e) => {
+    const a = e.target.files[0];
+    if (!a) return;
+    try {
+      logo = await banco.enviarLogo(await comprimirFoto(a, 500, "image/png"));
+      $("#logo-prev").innerHTML = `<img src="${esc(logo)}" alt="Logo nova" style="max-height:44px;max-width:120px;object-fit:contain">`;
+      toast("Logo carregada. Clique em Salvar.");
+    } catch (err) { alert("Não consegui carregar a logo: " + err.message); }
+  });
+  $("#logo-tirar")?.addEventListener("click", () => {
+    logo = "";
+    $("#logo-prev").innerHTML = `<span class="sub" style="font-weight:400">Sem logo (clique em Salvar)</span>`;
+  });
   $("#f").addEventListener("submit", async (e) => {
     e.preventDefault();
     const f = e.target;
     await banco.salvarLoja({ nome: f.nome.value.trim(), whatsapp: f.whatsapp.value.trim(),
-      endereco: f.endereco.value.trim(), tecnicos: f.tecnicos.value.trim(), termos: f.termos.value.trim() });
+      endereco: f.endereco.value.trim(), tecnicos: f.tecnicos.value.trim(), termos: f.termos.value.trim(),
+      cnpj: formatarCNPJ(f.cnpj.value), logo });
     loja = await banco.loja();
     toast("Dados da loja salvos");
     config();
