@@ -35,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "3.6"
+VERSAO = "3.7"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -1198,8 +1198,14 @@ class App(tk.Tk):
                 for k, v in alm.items():
                     self.escreve(f"  {core.NOMES_ALMOFADA.get(k, k)}: {v:.2f}%")
             elif core.modelo_suportado(modelo):
-                msg = ("Não consegui ler os contadores na EEPROM. Provável firmware com "
-                       "bloqueio pela rede: use o reset temporário ou o cabo USB.")
+                if con == core.WIFI:
+                    msg = ("Não consegui ler os contadores pela rede. Provável firmware com "
+                           "bloqueio: tente pelo cabo USB, ou use o Reset temporário.")
+                else:
+                    msg = ("Não consegui ler os contadores desse modelo/firmware, mas o "
+                           "Reset temporário funciona assim mesmo e libera a impressora. "
+                           "Se ela está no erro de almofada, use o temporário. Para o reset "
+                           "permanente neste modelo, me avise (os endereços podem ser outros).")
                 self.escreve("⚠ " + msg)
                 ttk.Label(self.fr_barras, text="⚠ " + msg, foreground=COR["aviso"],
                           wraplength=820).grid(row=0, column=0, sticky="w")
