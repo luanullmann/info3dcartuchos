@@ -256,6 +256,72 @@ def detectar_modelo(conexao: str, ip: Optional[str] = None) -> Optional[str]:
         fechar(imp)
 
 
+def usb_conectadas() -> list:
+    """Epson ligadas no USB agora (rápido: só enumera, não abre a impressora)."""
+    try:
+        import epson_usb
+        return list(epson_usb.find_devices())
+    except Exception as exc:  # noqa: BLE001
+        log.debug("enumeração USB: %s", exc)
+        return []
+
+
+def auto_detectar(progresso: Optional[Callable[[str], None]] = None) -> Optional[dict]:
+    """Acha a impressora sozinho: primeiro no USB, depois na rede e no Wi-Fi Direct.
+
+    Devolve {"conexao", "modelo", "ip", "nome", "outras": [...]} ou None.
+    """
+    def prog(m):
+        if progresso:
+            progresso(m)
+
+    prog("Procurando impressora no USB...")
+    if usb_conectadas():
+        modelo = None
+        try:
+            modelo = detectar_modelo(USB)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("modelo pelo USB: %s", exc)
+        return {"conexao": USB, "modelo": modelo, "ip": None,
+                "nome": f"Epson {modelo or ''} no USB".replace("  ", " "), "outras": []}
+
+    prog("Nenhuma no USB. Procurando na rede (até ~30 s)...")
+    try:
+        achadas = procurar_na_rede()
+    except Exception as exc:  # noqa: BLE001
+        log.debug("busca na rede: %s", exc)
+        achadas = []
+    if not achadas:
+        # Wi-Fi Direct: o PC pode estar ligado direto na rede DIRECT-… da impressora
+        import socket
+        for porta in (9100, 80):
+            try:
+                with socket.create_connection(("192.168.223.1", porta), timeout=1.5):
+                    achadas = [{"ip": "192.168.223.1", "nome": "Wi-Fi Direct", "modelo": None}]
+                    break
+            except OSError:
+                continue
+    if not achadas:
+        return None
+    if achadas[0]["nome"] == "Wi-Fi Direct":
+        # porta aberta não basta: só aceita se a impressora responder o modelo
+        try:
+            achadas[0]["modelo"] = detectar_modelo(WIFI, "192.168.223.1")
+        except Exception:  # noqa: BLE001
+            achadas[0]["modelo"] = None
+        if not achadas[0]["modelo"]:
+            return None
+    for p in achadas:
+        if not p.get("modelo"):
+            try:
+                p["modelo"] = detectar_modelo(WIFI, p["ip"])
+            except Exception as exc:  # noqa: BLE001
+                log.debug("modelo em %s: %s", p["ip"], exc)
+    p = achadas[0]
+    return {"conexao": WIFI, "modelo": p.get("modelo"), "ip": p["ip"],
+            "nome": p.get("nome") or p["ip"], "outras": achadas}
+
+
 # --------------------------------------------------------------------------
 # Leitura
 # --------------------------------------------------------------------------

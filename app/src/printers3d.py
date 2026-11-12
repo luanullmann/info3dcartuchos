@@ -35,7 +35,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "2.7"
+VERSAO = "2.8"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -272,6 +272,9 @@ class App(tk.Tk):
         self._abas()
         self._rodape()
         self.after(100, self._processa_fila)
+        self.after(800, lambda: self.auto_detectar(silencioso=True))
+        self._usb_visto = None
+        self.after(5000, self._vigia_usb)
         self.escreve(f"{NOME} {VERSAO} - {len(self.modelos)} modelos Epson no banco.")
 
     # ------------------------------------------------------------ estilo
@@ -341,7 +344,9 @@ class App(tk.Tk):
         self.cb_modelo.grid(row=0, column=0, sticky="w")
         self.cb_modelo.bind("<<ComboboxSelected>>", lambda e: self._atualiza_suporte())
         self.cb_modelo.bind("<KeyRelease>", self._filtra_modelos)
-        ttk.Button(c2, text="Detectar", command=self.detectar).grid(row=0, column=1, padx=8)
+        b = ttk.Button(c2, text="🔍 Detectar automático", style="Accent.TButton", command=self.auto_detectar)
+        b.grid(row=0, column=1, padx=8)
+        self.botoes.append(b)
         self.lb_suporte = ttk.Label(c2, text="Escolha ou detecte o modelo.",
                                     foreground=COR["cinza"], wraplength=380)
         self.lb_suporte.grid(row=1, column=0, columnspan=2, sticky="w", pady=(6, 0))
@@ -388,7 +393,7 @@ class App(tk.Tk):
         self.nb.add(f, text="  Reset de almofadas  ")
         topo = ttk.Frame(f)
         topo.pack(fill="x")
-        self.botoes = []
+        self.botoes = getattr(self, "botoes", [])
         for txt, cmd, st in [("Ler contadores", self.ler, "Accent.TButton"),
                              ("Reset PERMANENTE", self.reset_perm, "Perigo.TButton"),
                              ("Reset temporário", self.reset_temp, None)]:
@@ -1043,6 +1048,89 @@ class App(tk.Tk):
             self.status.set(f"Encontrada: {p['nome']} ({p['ip']})")
         self.executar("Procurando impressoras",
                       lambda: core.procurar_na_rede(lambda m: self.fila.put(("status", m))), fim)
+
+    def auto_detectar(self, silencioso=False):
+        """USB primeiro, depois rede/Wi-Fi Direct: preenche conexão, IP e modelo e já lê os contadores."""
+        def aplicar(r):
+            self.conexao.set(r["conexao"])
+            self._troca_conexao()
+            self.ip.set(r.get("ip") or "")
+            if r.get("modelo"):
+                self.modelo.set(r["modelo"])
+            self._atualiza_suporte()
+            via = "cabo USB" if r["conexao"] == core.USB else f"rede ({r['ip']})"
+            self.escreve(f"✔ Encontrada: {r.get('modelo') or 'modelo não informado'} pelo {via}")
+            self.status.set(f"Encontrada: {r.get('modelo') or 'Epson'} pelo {via}")
+            if r.get("modelo") and core.modelo_suportado(r["modelo"]):
+                self.ler()
+            elif not r.get("modelo"):
+                self.escreve("A impressora não informou o modelo: escolha na lista.")
+
+        def fim(r):
+            if not r:
+                self.escreve("Nenhuma impressora Epson encontrada no USB nem na rede.")
+                self.status.set("Nenhuma impressora encontrada. Ligue o cabo USB ou ponha o PC na mesma rede.")
+                if not silencioso:
+                    messagebox.showinfo("Detectar", "Nenhuma impressora Epson encontrada.\n\n"
+                                        "• USB: confira o cabo e se a impressora está ligada.\n"
+                                        "• Wi-Fi: o PC precisa estar na mesma rede (ou no Wi-Fi Direct da impressora).")
+                return
+            outras = r.get("outras") or []
+            if len(outras) > 1 and not silencioso:
+                escolhida = self._escolher_da_lista(outras)
+                if not escolhida:
+                    return
+                r = {**r, "ip": escolhida["ip"], "modelo": escolhida.get("modelo"), "nome": escolhida.get("nome")}
+            aplicar(r)
+        self.executar("Detectando impressora",
+                      lambda: core.auto_detectar(lambda m: self.fila.put(("status", m))), fim)
+
+    def _vigia_usb(self):
+        """A cada 3 s confere se ligaram/desligaram uma Epson no USB e detecta sozinho."""
+        def checa():
+            atuais = tuple(sorted(str(d.path) for d in core.usb_conectadas()))
+            self.fila.put(("fim", lambda: self._usb_mudou(atuais)))
+        if not self.ocupado:
+            threading.Thread(target=checa, daemon=True).start()
+        self.after(3000, self._vigia_usb)
+
+    def _usb_mudou(self, atuais):
+        antes, self._usb_visto = self._usb_visto, atuais
+        if antes is None or atuais == antes or self.ocupado:
+            return
+        if atuais:
+            self.escreve("Nova impressora no USB: detectando...")
+            self.auto_detectar(silencioso=True)
+        elif self.conexao.get() == core.USB:
+            self.escreve("Impressora desligada do USB.")
+            self.status.set("Impressora desligada do USB.")
+
+    def _escolher_da_lista(self, lista):
+        """Janela para escolher entre várias impressoras achadas na rede."""
+        win = tk.Toplevel(self)
+        win.title("Várias impressoras na rede")
+        win.transient(self)
+        win.grab_set()
+        ttk.Label(win, text="Achei mais de uma Epson na rede. Qual é a da bancada?",
+                  padding=(14, 12, 14, 6)).pack(anchor="w")
+        lb = tk.Listbox(win, width=60, height=min(10, len(lista)), font=("Segoe UI", 10))
+        for p in lista:
+            lb.insert("end", f"{p.get('modelo') or '?':<10}  {p['ip']:<16}  {p.get('nome') or ''}")
+        lb.selection_set(0)
+        lb.pack(padx=14, fill="x")
+        escolha = {"v": None}
+
+        def ok(_e=None):
+            sel = lb.curselection()
+            escolha["v"] = lista[sel[0]] if sel else None
+            win.destroy()
+        lb.bind("<Double-Button-1>", ok)
+        bts = ttk.Frame(win, padding=14)
+        bts.pack(fill="x")
+        ttk.Button(bts, text="Usar esta", style="Accent.TButton", command=ok).pack(side="right")
+        ttk.Button(bts, text="Cancelar", command=win.destroy).pack(side="right", padx=8)
+        self.wait_window(win)
+        return escolha["v"]
 
     def detectar(self):
         par = self._parametros(precisa_modelo=False)
