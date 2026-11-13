@@ -137,12 +137,12 @@ class BancoDemo {
     const w = soDigitos(whatsapp);
     return this.#ler().clientes.find((c) => c.whatsapp === w) || null;
   }
-  async salvarCliente({ nome, whatsapp }) {
+  async salvarCliente({ nome, whatsapp, cpf }) {
     const d = this.#ler();
     const w = soDigitos(whatsapp);
     let c = d.clientes.find((x) => x.whatsapp === w && w);
-    if (c) c.nome = nome;
-    else d.clientes.push((c = { id: crypto.randomUUID(), nome, whatsapp: w }));
+    if (c) { c.nome = nome; if (cpf) c.cpf = cpf; }
+    else d.clientes.push((c = { id: crypto.randomUUID(), nome, whatsapp: w, cpf: cpf || null }));
     this.#gravar(d);
     return c.id;
   }
@@ -276,14 +276,14 @@ class BancoNuvem {
     if (!w) return null;
     return this.#ok(await this.sb.from("clientes").select("*").eq("whatsapp", w).maybeSingle());
   }
-  async salvarCliente({ nome, whatsapp }) {
+  async salvarCliente({ nome, whatsapp, cpf }) {
     const w = soDigitos(whatsapp);
     if (w) {
       const r = this.#ok(await this.sb.from("clientes")
-        .upsert({ nome, whatsapp: w }, { onConflict: "loja_id,whatsapp" }).select().single());
+        .upsert({ nome, whatsapp: w, cpf: cpf || null }, { onConflict: "loja_id,whatsapp" }).select().single());
       return r.id;
     }
-    const r = this.#ok(await this.sb.from("clientes").insert({ nome, whatsapp: null }).select().single());
+    const r = this.#ok(await this.sb.from("clientes").insert({ nome, whatsapp: null, cpf: cpf || null }).select().single());
     return r.id;
   }
   async enviarFoto(osId, blob) {

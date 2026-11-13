@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794513254";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794573173";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -159,6 +159,7 @@ function casca(ativo, html) {
       ${it("#/", "Painel")}
       ${it("#/nova", "Nova OS")}
       ${it("#/caixa", "Caixa")}
+      ${it("#/garantia", "Garantia")}
       ${it("#/config", "Minha loja")}
       <div class="rodape">${banco.modo === "demo"
         ? "Modo demonstração: dados só neste navegador."
@@ -236,8 +237,9 @@ async function nova() {
           <div class="grade">
             <label class="campo">WhatsApp<input type="tel" name="whatsapp" placeholder="(21) 9 0000-0000" inputmode="tel"></label>
             <label class="campo">Nome *<input type="text" name="nome" required></label>
+            <label class="campo">CPF/CNPJ<input type="text" name="cpf" inputmode="numeric" placeholder="opcional"></label>
           </div>
-          <div class="sub" id="cli-info" style="margin-top:8px">Digite o WhatsApp: se já for cliente, o nome aparece sozinho.</div>
+          <div class="sub" id="cli-info" style="margin-top:8px">Digite o WhatsApp: se já for cliente, o nome e o CPF aparecem sozinhos.</div>
         </section>
         <section class="card">
           <h2>Aparelho</h2>
@@ -316,6 +318,7 @@ async function nova() {
     const c = await banco.buscarCliente(f.whatsapp.value).catch(() => null);
     if (c) {
       f.nome.value = c.nome;
+      if (c.cpf && !f.cpf.value) f.cpf.value = c.cpf;
       const anteriores = (await banco.listarOS()).filter((o) => o.cliente_id === c.id);
       $("#cli-info").textContent = `Cliente já cadastrado · ${anteriores.length} OS anterior(es).`;
     }
@@ -328,11 +331,12 @@ async function nova() {
     bt.textContent = "Salvando…";
     try {
       try { if (f.tecnico.value.trim()) localStorage.setItem("os3d_tecnico", f.tecnico.value.trim()); } catch { /* ignore */ }
-      const cliente_id = await banco.salvarCliente({ nome: f.nome.value.trim(), whatsapp: f.whatsapp.value });
+      const cliente_id = await banco.salvarCliente({ nome: f.nome.value.trim(), whatsapp: f.whatsapp.value, cpf: soDigitos(f.cpf.value) });
       let os = await banco.criarOS({
         cliente_id,
         cliente_nome: f.nome.value.trim(),
         cliente_whatsapp: soDigitos(f.whatsapp.value),
+        cliente_cpf: soDigitos(f.cpf.value),
         tipo: f.tipo.value,
         modelo: f.modelo.value.trim(),
         serie: f.serie.value.trim(),
@@ -368,7 +372,7 @@ async function detalhe(id) {
       <div>
         <a href="#/" style="text-decoration:none">← Painel</a>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><h1>OS #${os.numero} · ${esc(os.modelo || os.tipo)}</h1>${tag(os.status)}</div>
-        <div class="sub">${esc(os.cliente_nome)}${os.cliente_whatsapp ? " · " + esc(os.cliente_whatsapp) : ""} · entrada ${dataHora(os.criado_em)}${os.tecnico ? " · técnico " + esc(os.tecnico) : ""}</div>
+        <div class="sub">${esc(os.cliente_nome)}${os.cliente_whatsapp ? " · " + esc(os.cliente_whatsapp) : ""}${os.cliente_cpf ? " · CPF " + esc(os.cliente_cpf) : ""} · entrada ${dataHora(os.criado_em)}${os.tecnico ? " · técnico " + esc(os.tecnico) : ""}</div>
       </div>
       <div class="acoes">
         <a class="bt" href="#/imprimir/${os.id}">Imprimir via</a>
@@ -721,6 +725,86 @@ async function caixa() {
     </div></div></section>` : ""}`);
 }
 
+// ------------------------------------------------------------ garantia / ficha do cliente
+function dataEntrega(os) {
+  const ev = (os.eventos || []).filter((e) => /entregue|conclu|pronta/i.test(e.texto || ""));
+  if (ev.length) return new Date(ev[ev.length - 1].em);
+  if (os.pago_em) return new Date(os.pago_em);
+  return new Date(os.atualizado_em || os.criado_em);
+}
+function garantiaDaOS(os) {
+  const dias = Number(os.garantia_dias) || 0;
+  const entregue = ["entregue"].includes(os.status) || os.pago;
+  if (!entregue || !dias) {
+    if (["recusada"].includes(os.status)) return { texto: "Recusada", cor: "cinza" };
+    return { texto: "Em andamento", cor: "azul", andamento: true };
+  }
+  const fim = new Date(dataEntrega(os));
+  fim.setDate(fim.getDate() + dias);
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const d = String(fim.getDate()).padStart(2, "0") + "/" + String(fim.getMonth() + 1).padStart(2, "0") + "/" + fim.getFullYear();
+  if (hoje <= fim) return { texto: "Em garantia até " + d, cor: "verde" };
+  return { texto: "Garantia vencida em " + d, cor: "vermelho", vencida: true };
+}
+
+async function garantia(busca = "") {
+  casca("#/garantia", `
+    <div class="topo"><div><h1>Garantia / ficha do cliente</h1>
+      <div class="sub">Busque por nome, nº da OS, CPF ou WhatsApp e veja o histórico e a garantia</div></div></div>
+    <section class="card">
+      <label class="sr" for="bg">Buscar</label>
+      <input type="search" id="bg" placeholder="Nome, nº da OS, CPF ou WhatsApp..." value="${esc(busca)}" style="width:100%;max-width:520px" autofocus>
+    </section>
+    <div id="res"></div>`);
+
+  const inp = $("#bg");
+  const ordens = await banco.listarOS();
+
+  const desenha = () => {
+    const termo = inp.value.trim().toLowerCase();
+    const td = soDigitos(termo);
+    if (!termo) { $("#res").innerHTML = `<div class="vazio">Digite algo para buscar.</div>`; return; }
+    const achou = ordens.filter((o) => {
+      const campos = [o.cliente_nome, o.modelo, o.serie, o.defeito].map((x) => String(x || "").toLowerCase());
+      const nums = [String(o.numero), soDigitos(o.cliente_whatsapp), soDigitos(o.cliente_cpf)];
+      return campos.some((c) => c.includes(termo)) || (td && nums.some((n) => n && n.includes(td)));
+    });
+    if (!achou.length) { $("#res").innerHTML = `<div class="vazio">Nenhum resultado para "${esc(inp.value)}".</div>`; return; }
+
+    // agrupa por cliente
+    const porCliente = {};
+    achou.forEach((o) => {
+      const chave = soDigitos(o.cliente_whatsapp) || soDigitos(o.cliente_cpf) || (o.cliente_nome || "").toLowerCase() || o.id;
+      (porCliente[chave] = porCliente[chave] || { nome: o.cliente_nome, cpf: o.cliente_cpf, whats: o.cliente_whatsapp, oss: [] }).oss.push(o);
+    });
+
+    $("#res").innerHTML = Object.values(porCliente).map((c) => {
+      const emGar = c.oss.filter((o) => garantiaDaOS(o).cor === "verde").length;
+      return `<section class="card" style="margin-bottom:14px">
+        <div class="topo" style="margin-bottom:8px">
+          <div><h2 style="margin:0">${esc(c.nome || "Sem nome")}</h2>
+            <div class="sub">${[c.whats && "WhatsApp " + esc(c.whats), c.cpf && "CPF " + esc(c.cpf), c.oss.length + " OS no histórico"].filter(Boolean).join(" · ")}</div></div>
+          ${emGar ? `<span class="tag verde">${emGar} em garantia</span>` : ""}
+        </div>
+        <div class="tabela"><div style="min-width:620px">
+          ${c.oss.slice().sort((a, b) => b.numero - a.numero).map((o) => {
+            const g = garantiaDaOS(o);
+            const serv = (o.itens || []).map((i) => i.desc).filter(Boolean).join(", ") || o.defeito || "—";
+            return `<a class="linha" href="#/os/${o.id}" style="grid-template-columns:70px 1.4fr 1.6fr 200px;min-width:0">
+              <b>#${o.numero}</b>
+              <span>${esc(o.modelo || o.tipo)}<br><span class="sub" style="font-size:12px">${data(o.criado_em)}</span></span>
+              <span class="sub">${esc(serv)}</span>
+              <span class="tag ${g.cor}" style="justify-self:start">${esc(g.texto)}</span>
+            </a>`;
+          }).join("")}
+        </div></div>
+      </section>`;
+    }).join("");
+  };
+  desenha();
+  inp.addEventListener("input", desenha);
+}
+
 // ------------------------------------------------------------ login (nuvem)
 function telaLogin() {
   raiz.innerHTML = `
@@ -780,6 +864,7 @@ async function rota() {
     if (h === "#/nova") return await nova();
     if (h === "#/config") return await config();
     if (h === "#/caixa") return await caixa();
+    if (h === "#/garantia") return await garantia();
     return await painel();
   } catch (err) {
     console.error(err);

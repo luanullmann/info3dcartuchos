@@ -34,6 +34,7 @@ create table if not exists clientes (
   loja_id uuid not null default minha_loja() references lojas on delete cascade,
   nome text not null,
   whatsapp text,
+  cpf text,
   criado_em timestamptz not null default now(),
   unique (loja_id, whatsapp)
 );
@@ -45,6 +46,7 @@ create table if not exists ordens (
   cliente_id uuid references clientes on delete set null,
   cliente_nome text,
   cliente_whatsapp text,
+  cliente_cpf text,
   tipo text,
   modelo text,
   serie text,
@@ -73,6 +75,8 @@ alter table ordens add column if not exists pix_imagem text;
 alter table ordens add column if not exists pix_expira timestamptz;
 alter table ordens add column if not exists pix_valor int;
 create index if not exists ordens_loja_numero on ordens (loja_id, numero desc);
+alter table clientes add column if not exists cpf text;
+alter table ordens add column if not exists cliente_cpf text;
 
 -- número sequencial por loja
 create or replace function numerar_os() returns trigger
