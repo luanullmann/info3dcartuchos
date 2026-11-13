@@ -210,6 +210,7 @@ function publico(os, loja) {
     pix_cidade: loja.pix_cidade,
     pago: !!os.pago,
     pagamento_informado: !!os.pagamento_informado,
+    garantia: !!os.garantia,
   };
 }
 

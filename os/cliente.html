@@ -7,7 +7,7 @@
 <title>Acompanhe seu conserto</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilo.css?v=1794573173">
+<link rel="stylesheet" href="estilo.css?v=1794573830">
 <style>
 .pg{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column}
 .loja{background:#fff;border-bottom:1px solid var(--borda);padding:16px 18px;display:flex;gap:14px;align-items:center}
@@ -26,14 +26,14 @@ header h1{font-size:22px;margin:0 0 4px}header div{color:#DDE3F0;font-size:14px}
 .qr{display:flex;justify-content:center;margin:10px 0}.qr img{width:220px;height:220px;image-rendering:pixelated}
 .copia{font-family:Consolas,monospace;font-size:11px;word-break:break-all;background:#F4F5F8;border-radius:8px;padding:10px;max-height:72px;overflow:auto}
 </style>
-<script src="config.js?v=1794573173"></script>
-<script src="vendor/qrcode.js?v=1794573173"></script>
+<script src="config.js?v=1794573830"></script>
+<script src="vendor/qrcode.js?v=1794573830"></script>
 </head>
 <body>
 <div class="pg" id="raiz"><p class="vazio">Carregando…</p></div>
 <script type="module">
-import { criarBanco, STATUS } from "./dados.js?v=1794573173";
-import { pixCopiaECola } from "./pix.js?v=1794573173";
+import { criarBanco, STATUS } from "./dados.js?v=1794573830";
+import { pixCopiaECola } from "./pix.js?v=1794573830";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const num = (s) => Number(String(s ?? "").replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")) || 0;
 const reais = (n) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -72,6 +72,9 @@ function blocoPixAutomatico(os, tot) {
 }
 
 function blocoPix(os, tot) {
+  if (os.garantia) return `<section class="card" style="border-color:#9CD3AE;background:#F1FAF4">
+      <span class="tag verde">Coberto pela garantia</span>
+      <p style="margin:8px 0 0">Este atendimento está dentro da garantia — <b>sem custo</b>. 😊</p></section>`;
   if (!(tot > 0) || !["conserto", "pronta", "entregue"].includes(os.status)) return "";
   if (os.pago) return `<section class="card" style="text-align:center;border-color:#9CD3AE;background:#F1FAF4">
       <div style="font-size:40px;line-height:1;color:var(--verde)" aria-hidden="true">✓</div>
@@ -149,7 +152,7 @@ async function mostra() {
         <button class="bt zap grande" type="button" id="sim">Aprovar orçamento</button>
         <button class="bt grande" type="button" id="nao">Recusar e retirar o aparelho</button>` : ""}
       ${blocoPix(os, tot)}
-      ${tot > 0 && !os.pago && ["aprovacao", "conserto", "pronta"].includes(os.status) ? `<section class="card" style="display:flex;gap:12px;align-items:flex-start">
+      ${!os.garantia && tot > 0 && !os.pago && ["aprovacao", "conserto", "pronta"].includes(os.status) ? `<section class="card" style="display:flex;gap:12px;align-items:flex-start">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none;color:var(--marinho)"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
         <div><b>Prefere pagar no cartão?</b>
           <div style="margin-top:4px;line-height:1.5">Débito, crédito ou Pix no balcão: é só pagar direto na loja, com nosso atendente, na hora de retirar o aparelho.</div></div>

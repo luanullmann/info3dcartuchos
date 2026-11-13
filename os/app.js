@@ -1,4 +1,4 @@
-import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794573173";
+import { criarBanco, STATUS, soDigitos, comprimirFoto, formatarCNPJ } from "./dados.js?v=1794573830";
 
 const raiz = document.getElementById("raiz");
 let banco, loja;
@@ -405,6 +405,7 @@ async function detalhe(id) {
             <label class="campo">Status<select id="status">${Object.entries(STATUS).map(([k, v]) =>
               `<option value="${k}" ${k === os.status ? "selected" : ""}>${v.nome}</option>`).join("")}</select></label>
           </div>
+          <label class="check" style="margin-top:12px"><input type="checkbox" id="em-garantia" ${os.garantia ? "checked" : ""}> Atendimento <b>em garantia</b> (sem cobrança do cliente)</label>
           <div class="acoes" style="margin-top:16px">
             <button class="bt" type="button" id="salvar">Salvar</button>
             ${["orcamento", "aprovacao"].includes(os.status)
@@ -422,7 +423,11 @@ async function detalhe(id) {
           </div>
           ${os.cliente_whatsapp ? "" : `<div class="sub" style="margin-top:8px">Cliente sem WhatsApp cadastrado.</div>`}
         </section>
-        ${total(os) > 0 ? `<section class="card">
+        ${os.garantia ? `<section class="card">
+          <h2>Garantia</h2>
+          <span class="tag verde">Coberto pela garantia — sem cobrança</span>
+          <div class="sub" style="margin-top:6px">Este atendimento não é cobrado do cliente.</div>
+        </section>` : total(os) > 0 ? `<section class="card">
           <h2>Pagamento · ${reais(total(os))}</h2>
           <div style="margin-bottom:12px">${os.pago
             ? `<span class="tag verde">Pago</span>`
@@ -457,7 +462,8 @@ async function detalhe(id) {
   const msg = () => {
     // com orçamento preenchido, a prévia já mostra a mensagem de orçamento
     const st = os.status === "orcamento" && itens.some((i) => (i.desc || "").trim()) ? "aprovacao" : os.status;
-    $("#msg").textContent = mensagem({ ...os, itens, laudo: $("#laudo").value, status: st });
+    const gar = $("#em-garantia") ? $("#em-garantia").checked : os.garantia;
+    $("#msg").textContent = mensagem({ ...os, itens, laudo: $("#laudo").value, status: st, garantia: gar });
   };
   const desenhaItens = () => {
     $("#itens").innerHTML = itens.map((i, n) => `
@@ -478,6 +484,7 @@ async function detalhe(id) {
   desenhaItens();
   msg();
   $("#laudo").addEventListener("input", msg);
+  $("#em-garantia")?.addEventListener("change", msg);
   $("#add-item").addEventListener("click", () => { itens.push({ desc: "", valor: "" }); desenhaItens(); });
 
   const salvar = async (novoStatus) => {
@@ -491,6 +498,7 @@ async function detalhe(id) {
       laudo: $("#laudo").value.trim(),
       itens: itens.filter((i) => i.desc.trim() || numero(i.valor)),
       garantia_dias: parseInt($("#garantia").value, 10) || 0,
+      garantia: $("#em-garantia") ? $("#em-garantia").checked : !!atual.garantia,
       status: st,
       eventos: ev,
     });
@@ -529,9 +537,11 @@ async function detalhe(id) {
   $("#concluir")?.addEventListener("click", async () => {
     const itensLimpos = itens.filter((i) => i.desc.trim() || numero(i.valor));
     const t = itensLimpos.reduce((sm, i) => sm + numero(i.valor), 0);
-    const pergunta = t > 0 && !os.pago
+    const pergunta = (!os.garantia && t > 0 && !os.pago)
       ? `Concluir a OS #${os.numero}? Será marcada como PAGA (${reais(t)}) e ENTREGUE.`
-      : `Concluir a OS #${os.numero}? Será marcada como ENTREGUE.`;
+      : os.garantia
+        ? `Concluir a OS #${os.numero} em garantia (sem cobrança)? Será marcada como ENTREGUE.`
+        : `Concluir a OS #${os.numero}? Será marcada como ENTREGUE.`;
     if (!confirm(pergunta)) return;
     const atual = (await banco.obterOS(os.id)) || os;
     const ev = [...(atual.eventos || [])];
@@ -541,7 +551,7 @@ async function detalhe(id) {
       garantia_dias: parseInt($("#garantia").value, 10) || 0,
       status: "entregue",
     };
-    if (t > 0 && !atual.pago) {
+    if (!atual.garantia && t > 0 && !atual.pago) {
       campos.pago = true;
       campos.pago_em = new Date().toISOString();
       ev.push({ em: new Date().toISOString(), texto: `Pagamento recebido no balcão (${reais(t)})` });
@@ -680,7 +690,7 @@ async function caixa() {
   const naSemana = pagas.filter((o) => dataDe(o) >= ini);
   const noMes = pagas.filter((o) => { const d = dataDe(o); return d.getMonth() === mesAtual && d.getFullYear() === anoAtual; });
   const noAno = pagas.filter((o) => dataDe(o).getFullYear() === anoAtual);
-  const aReceber = ordens.filter((o) => !o.pago && ["aprovacao", "conserto", "pronta"].includes(o.status));
+  const aReceber = ordens.filter((o) => !o.pago && !o.garantia && ["aprovacao", "conserto", "pronta"].includes(o.status));
 
   const porMes = MESES.map((_, m) => soma(pagas.filter((o) => { const d = dataDe(o); return d.getFullYear() === anoAtual && d.getMonth() === m; })));
   const maxMes = Math.max(1, ...porMes);

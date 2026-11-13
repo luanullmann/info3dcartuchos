@@ -77,6 +77,7 @@ alter table ordens add column if not exists pix_valor int;
 create index if not exists ordens_loja_numero on ordens (loja_id, numero desc);
 alter table clientes add column if not exists cpf text;
 alter table ordens add column if not exists cliente_cpf text;
+alter table ordens add column if not exists garantia boolean not null default false;
 
 -- número sequencial por loja
 create or replace function numerar_os() returns trigger
@@ -141,7 +142,7 @@ language sql stable security definer set search_path = public as $$
     'cliente_nome', o.cliente_nome, 'cliente_whats_final', right(o.cliente_whatsapp, 4),
     'serie', o.serie, 'defeito', o.defeito, 'acessorios', o.acessorios,
     'pix_tipo', l.pix_tipo, 'pix_chave', l.pix_chave, 'pix_cidade', l.pix_cidade,
-    'pago', o.pago, 'pagamento_informado', o.pagamento_informado)
+    'pago', o.pago, 'pagamento_informado', o.pagamento_informado, 'garantia', o.garantia)
   from ordens o join lojas l on l.id = o.loja_id
   where o.token = t
 $$;
