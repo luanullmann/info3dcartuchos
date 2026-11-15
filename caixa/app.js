@@ -54,14 +54,16 @@ async function iniciar() {
 }
 
 function login() {
-  raiz.innerHTML = `<div class="login"><img src="icone-192.png" alt=""><h1>Caixa 3D</h1><p>Entre com o mesmo e-mail e senha do OS 3D</p>
-    <form id="fl"><label class="f">E-mail<input class="inp" name="email" type="email" autocomplete="username" required></label>
+  raiz.innerHTML = `<div class="login"><img src="icone-192.png" alt=""><h1>Caixa 3D</h1><p>Entre com seu usuário (ou o e-mail do OS 3D) e senha</p>
+    <form id="fl"><label class="f">E-mail ou usuário<input class="inp" name="email" type="text" autocapitalize="none" autocorrect="off" autocomplete="username" required></label>
     <label class="f">Senha<input class="inp" name="senha" type="password" autocomplete="current-password" required></label>
     <button class="btn pri full" type="submit">Entrar</button></form></div>`;
   $('#fl').onsubmit = async e => {
     e.preventDefault();
     const f = new FormData(e.target);
-    const { data, error } = await sb.auth.signInWithPassword({ email: f.get('email').trim(), password: f.get('senha') });
+    let email = f.get('email').trim().toLowerCase();
+    if (!email.includes('@')) email += '@info3dcartuchos.com.br'; // usuário curto da equipe (ex.: daltro)
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: f.get('senha') });
     if (error) return toast(/invalid/i.test(error.message) ? 'E-mail ou senha incorretos' : error.message, 'err');
     usuario = data.user; abrir();
   };
