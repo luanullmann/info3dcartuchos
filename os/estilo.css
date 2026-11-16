@@ -72,6 +72,21 @@ a.linha:hover{background:#FAFBFC}
 .via .ass{display:flex;gap:40px;margin-top:40px}.via .ass div{flex:1;border-top:1px solid #000;padding-top:4px;text-align:center}
 .via hr{border:0;border-top:1px dashed #888;margin:24px 0}
 @media print{nav.menu,.nao-imprimir{display:none!important}main{padding:0}body{background:#fff}.via{padding:0}}
+.nao-tela{display:none}
+/* impressão da OS: A4 em pé, as duas vias na mesma folha (cliente em cima, loja embaixo) */
+@page{size:A4 portrait;margin:8mm 10mm}
+@media print{
+  html,body{margin:0}
+  .via{max-width:none;margin:0;font-size:11px;line-height:1.3}
+  .via .metade{height:133mm;overflow:hidden;break-inside:avoid;page-break-inside:avoid;display:flex;flex-direction:column}
+  .via h1{font-size:15px;margin:0}
+  .via img{max-height:44px!important;max-width:110px!important}
+  .via table{margin:4px 0}
+  .via td,.via th{padding:2px 5px}
+  .via .metade > div[style*="font-size:11px"]{font-size:8.6px!important;line-height:1.25}
+  .via .ass{margin-top:auto;padding-top:14px;gap:30px}
+  .via .corte{display:block;text-align:center;color:#999;font-size:9px;letter-spacing:1px;margin:2.5mm 0;overflow:hidden;white-space:nowrap;height:4mm}
+}
 @media (max-width:600px){main{padding:16px}.item{grid-template-columns:1fr 100px 40px}}
 .linha .tag{justify-self:start}
 .campo .chips{gap:6px}.campo .chips .chip{min-height:36px;padding:0 11px;font-weight:400}

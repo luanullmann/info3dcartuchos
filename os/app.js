@@ -606,7 +606,7 @@ async function imprimir(id) {
     <div class="ass"><div>Cliente</div><div>${esc(loja.nome)}</div></div>`;
   casca("", `
     <div class="acoes nao-imprimir"><a class="bt" href="#/os/${os.id}">← Voltar</a><button class="bt prim" type="button" id="imp">Imprimir</button></div>
-    <div class="via">${via("Via do cliente")}<hr>${via("Via da loja")}</div>`);
+    <div class="via"><div class="metade">${via("Via do cliente")}</div><div class="corte nao-tela">✂ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div><hr class="nao-imprimir"><div class="metade">${via("Via da loja")}</div></div>`);
   $("#imp").addEventListener("click", () => window.print());
 }
 
