@@ -36,7 +36,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "3.8"
+VERSAO = "3.9"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -1269,14 +1269,25 @@ class App(tk.Tk):
             except Exception as exc:  # noqa: BLE001
                 messagebox.showerror("Termo", f"Não consegui gerar o termo: {exc}", parent=win)
                 return
-            self.escreve(f"✔ Termo de garantia salvo: {caminho}")
-            termo.abrir(caminho)
             win.destroy()
+            self.config(cursor="watch"); self.update_idletasks()
+            pdf = termo.gerar_pdf(caminho)
+            self.config(cursor="")
             pasta_cli = os.path.dirname(os.path.dirname(caminho))
-            if messagebox.askyesno("Termo gerado",
-                                   "Termo de garantia gerado e aberto para impressão.\n\n"
-                                   "Abrir a pasta organizada deste cliente?"):
-                self._abrir(pasta_cli)
+            if pdf:
+                self.escreve(f"✔ Termo de garantia em PDF: {pdf}")
+                self._abrir(pdf)
+                msg = ("Termo de garantia salvo em PDF na pasta do cliente:\n\n"
+                       f"{pdf}\n\nO PDF já foi aberto: é só imprimir ou mandar pelo WhatsApp.\n\n"
+                       "Abrir a pasta deste cliente?")
+            else:
+                self.escreve(f"✔ Termo de garantia salvo: {caminho}")
+                termo.abrir(caminho)
+                msg = ("Termo de garantia gerado e aberto no navegador para impressão.\n"
+                       "(Não consegui gerar o PDF automático neste PC — use \"Imprimir / salvar PDF\".)\n\n"
+                       "Abrir a pasta organizada deste cliente?")
+            if messagebox.askyesno("Termo gerado", msg):
+                self._abrir(os.path.dirname(pdf) if pdf else pasta_cli)
 
         ttk.Button(bts, text="Cancelar", command=win.destroy).pack(side="right", padx=6)
         ttk.Button(bts, text="Gerar termo", style="Accent.TButton", command=gerar).pack(side="right")

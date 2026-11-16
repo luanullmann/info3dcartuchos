@@ -10,6 +10,10 @@ import base64
 import datetime as _dt
 import html
 import os
+import shutil
+import subprocess
+import sys
+import tempfile
 import webbrowser
 
 import core
@@ -133,3 +137,37 @@ ol{{font-size:13px;line-height:1.6;padding-left:20px;margin:0}}
 
 def abrir(caminho: str) -> None:
     webbrowser.open("file:///" + caminho.replace("\\", "/"))
+
+
+def _navegador() -> str | None:
+    """Edge (vem em todo Windows 10/11) ou Chrome, para gerar o PDF sem abrir janela."""
+    cands = []
+    for base in (os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles"), os.environ.get("LOCALAPPDATA")):
+        if base:
+            cands += [os.path.join(base, "Microsoft", "Edge", "Application", "msedge.exe"),
+                      os.path.join(base, "Google", "Chrome", "Application", "chrome.exe")]
+    cands += [shutil.which("msedge") or "", shutil.which("chrome") or "", shutil.which("chromium") or ""]
+    return next((c for c in cands if c and os.path.isfile(c)), None)
+
+
+def gerar_pdf(caminho_html: str) -> str | None:
+    """Converte o termo em PDF na mesma pasta do cliente. Devolve o caminho do PDF (ou None)."""
+    nav = _navegador()
+    if not nav:
+        return None
+    pdf = os.path.splitext(caminho_html)[0] + ".pdf"
+    perfil = tempfile.mkdtemp(prefix="p3d-pdf-")  # perfil separado: não interfere no Edge aberto
+    try:
+        if os.path.exists(pdf):
+            os.remove(pdf)
+        from pathlib import Path
+        url = Path(os.path.abspath(caminho_html)).as_uri()  # trata espaços e apóstrofo ("Printer's 3D Utility")
+        subprocess.run([nav, "--headless=new", "--disable-gpu", "--no-first-run", "--no-pdf-header-footer",
+                        "--print-to-pdf-no-header", f"--user-data-dir={perfil}", f"--print-to-pdf={pdf}", url],
+                       timeout=60, capture_output=True,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0) if sys.platform == "win32" else 0)
+        return pdf if os.path.isfile(pdf) and os.path.getsize(pdf) > 1000 else None
+    except Exception:  # noqa: BLE001
+        return None
+    finally:
+        shutil.rmtree(perfil, ignore_errors=True)
