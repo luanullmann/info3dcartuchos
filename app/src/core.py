@@ -142,6 +142,8 @@ EQUIVALENTES = {
     # geração anterior (família L3150/L4160, chave "Arantifo"). A L3110 é a
     # versão só-USB da L3150.
     "L3110": "L3150",
+    # L375 é a versão brasileira da ET-2500 (mesma placa, chave "Gerbera*").
+    "L375": "ET-2500",
 }
 _cache_embutidos: Optional[dict] = None
 

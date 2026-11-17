@@ -36,7 +36,7 @@ except ImportError:
     Image = ImageTk = None
 
 NOME = "Printer's 3D Utility"
-VERSAO = "3.9"
+VERSAO = "3.10"
 
 COR = {
     "acento": "#2563eb", "acento2": "#1e40af",
@@ -725,7 +725,7 @@ class App(tk.Tk):
         if nome in impressao.DESCONECTADAS:
             self.escreve(f"Atenção: o Windows diz que '{nome}' está desconectada/offline.")
 
-    def carregar_impressoras(self):
+    def carregar_impressoras(self, trocou_modelo=False):
         self._impressoras_carregadas = True
 
         def fim(r):
@@ -735,6 +735,8 @@ class App(tk.Tk):
             esc = impressao.escolher_impressora(
                 lista, padrao, self.modelo.get().strip(),
                 atual=self.imp_nome.get().strip(), lembrada=core.ler_ajuste("impressora_windows"))
+            if trocou_modelo and esc:
+                core.salvar_ajuste("impressora_windows", esc)
             if esc:
                 self.imp_nome.set(esc)
                 self.imp_nome_m.set(esc)
@@ -1093,6 +1095,9 @@ class App(tk.Tk):
             if r.get("modelo"):
                 self.modelo.set(r["modelo"])
             self._atualiza_suporte()
+            if r.get("modelo"):
+                # a impressora do Windows passa a ser a fila desse modelo
+                self.carregar_impressoras(trocou_modelo=True)
             via = "cabo USB" if r["conexao"] == core.USB else f"rede ({r['ip']})"
             self.escreve(f"✔ Encontrada: {r.get('modelo') or 'modelo não informado'} pelo {via}")
             self.status.set(f"Encontrada: {r.get('modelo') or 'Epson'} pelo {via}")

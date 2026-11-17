@@ -5,6 +5,8 @@ programas extras. A impressora precisa estar instalada com o driver.
 """
 from __future__ import annotations
 
+import re
+
 import os
 import subprocess
 import sys
@@ -120,19 +122,34 @@ def listar_impressoras() -> tuple[list[str], str | None]:
 DESCONECTADAS: set[str] = set()
 
 
+def _bate_modelo(nome: str, modelo: str | None) -> bool:
+    """'EPSON L375 Series' bate com L375, mas 'EPSON L3750' não."""
+    if not modelo:
+        return False
+    return re.search(r"(?<![A-Z0-9])" + re.escape(modelo.upper()) + r"(?![0-9])", nome.upper()) is not None
+
+
 def escolher_impressora(lista: list[str], padrao: str | None, modelo: str | None,
                         atual: str | None = None, lembrada: str | None = None) -> str | None:
-    """Escolha da impressora, nesta ordem:
-    1) a que já está escolhida na tela; 2) a última usada (salva);
-    3) a do modelo que está conectada (padrão do Windows primeiro); 4) qualquer Epson conectada."""
+    """Escolha da impressora:
+    1) se o modelo é conhecido, uma fila desse modelo (conectada primeiro; entre elas a já
+       escolhida, a lembrada ou a padrão do Windows); 2) a já escolhida ou a última usada;
+    3) qualquer Epson conectada; 4) a padrão do Windows."""
+    ligadas = [n for n in lista if n not in DESCONECTADAS]
+    if modelo:
+        do_modelo = [n for n in lista if _bate_modelo(n, modelo)]
+        if do_modelo:
+            do_modelo.sort(key=lambda n: n in DESCONECTADAS)  # conectadas primeiro
+            for pref in (atual, lembrada, padrao):
+                if pref in do_modelo and pref not in DESCONECTADAS:
+                    return pref
+            return do_modelo[0]
     for n in (atual, lembrada):
         if n and n in lista:
             return n
-    ligadas = [n for n in lista if n not in DESCONECTADAS] or lista
-    for grupo in ([n for n in ligadas if modelo and modelo.upper() in n.upper()],
-                  [n for n in ligadas if "EPSON" in n.upper()]):
-        if grupo:
-            return padrao if padrao in grupo else grupo[0]
+    epson = [n for n in (ligadas or lista) if "EPSON" in n.upper()]
+    if epson:
+        return padrao if padrao in epson else epson[0]
     return padrao or (lista[0] if lista else None)
 
 
